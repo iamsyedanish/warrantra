@@ -79,6 +79,14 @@ export const MeController = {
   usage: async (req: Request, res: Response) => {
     res.json(one(check(await authOf(req).db.rpc('get_my_usage'))));
   },
+  annualSummary: async (req: Request, res: Response) => {
+    const year = Number(req.query.year ?? new Date().getUTCFullYear());
+    if (!Number.isInteger(year) || year < 2000 || year > 2100) {
+      res.status(400).json({ error: { code: 'invalid_year', message: 'Use a four-digit year', request_id: req.id } });
+      return;
+    }
+    res.json(one(check(await authOf(req).db.rpc('get_annual_summary', { p_year: year }))));
+  },
   restorePurchases: async (req: Request, res: Response) => {
     const a = authOf(req);
     await billing.restore(a.userId);

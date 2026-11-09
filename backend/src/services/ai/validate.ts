@@ -4,7 +4,7 @@
  * implausible is nulled with a warning rather than "fixed" by guessing.
  */
 import { addDays, isValidIsoDate, parseCandidateDate } from '../../lib/dates.js';
-import type { ReceiptExtraction } from './schema.js';
+import type { ProductLabelExtraction, ReceiptExtraction } from './schema.js';
 
 export interface ReviewField<T> {
   value: T | null;
@@ -124,6 +124,36 @@ export function validateReceiptCandidate(c: ReceiptExtraction, opts: { locale: '
       return_policy: c.return_policy_mentions.slice(0, 5).map((m) => ({ text: m.text.slice(0, 300), evidence: m.evidence.slice(0, 160), label })),
       warranty: c.warranty_mentions.slice(0, 5).map((m) => ({ text: m.text.slice(0, 300), evidence: m.evidence.slice(0, 160), label })),
     },
+    warnings,
+  };
+}
+
+export interface LabelReviewDraft {
+  product_name: ReviewField<string>;
+  brand: ReviewField<string>;
+  model_number: ReviewField<string>;
+  serial_number: ReviewField<string>;
+  manufacture_date: ReviewField<string>;
+  warnings: string[];
+}
+
+/** Product/label photo: same rule — no evidence, no value. Serial/model numbers are never "corrected". */
+export function validateLabelCandidate(c: ProductLabelExtraction): LabelReviewDraft {
+  const warnings = (c.warnings ?? []).map((w) => w.slice(0, 200)).slice(0, 20);
+  const code = (f: { value: string | null; evidence: string | null }, name: string): ReviewField<string> => {
+    const v = textField(f, 120, warnings, name);
+    if (v.value && !/^[A-Za-z0-9][A-Za-z0-9 ./_-]{1,119}$/.test(v.value)) {
+      warnings.push(`${name}: unexpected characters, left blank`);
+      return { value: null, evidence: v.evidence, status: 'rejected' };
+    }
+    return v;
+  };
+  return {
+    product_name: textField(c.product_name, 200, warnings, 'product name'),
+    brand: textField(c.brand, 120, warnings, 'brand'),
+    model_number: code(c.model_number, 'model number'),
+    serial_number: code(c.serial_number, 'serial number'),
+    manufacture_date: textField(c.manufacture_date, 40, warnings, 'manufacture date'),
     warnings,
   };
 }

@@ -92,8 +92,24 @@ export const updateItem = (db: Db, id: string, patch: z.infer<typeof ItemPatch>,
 export const deleteItem = (db: Db, id: string) => Items(db).remove(id, 'item_not_found');
 
 export async function actionCenter(db: Db, horizonDays: number) {
-  const rows = check(await db.rpc('get_action_center', { p_horizon_days: horizonDays })) as Row[];
+  const [res, itemCount] = await Promise.all([
+    db.rpc('get_action_center', { p_horizon_days: horizonDays }),
+    db.from('items').select('id', { count: 'exact', head: true }),
+  ]);
+  const rows = check(res) as Row[];
   const urgent = rows.filter((r) => !String(r.kind).startsWith('missing_'));
+  if ((itemCount.count ?? 0) === 0) {
+    return {
+      summary: {
+        title: 'Protect your first purchase',
+        message: 'Add something you own and Warrantra will keep its receipt, warranty, and deadlines together.',
+        cta: 'Add Purchase',
+      },
+      actions: [],
+      missing_information: [],
+      empty: true,
+    };
+  }
   return {
     summary: urgent.length === 0
       ? { title: "You're all caught up", message: 'No returns, registrations, or warranties need attention right now.' }

@@ -32,6 +32,7 @@ Conventions:
 | GET/PATCH | `/me` | profile, entitlement, usage; PATCH timezone/alert time/preferences (reminders reschedule) |
 | POST | `/me/ai-consent` | explicit permission for third-party AI processing |
 | GET | `/me/entitlement`, `/me/usage` | server-authoritative plan and quotas |
+| GET | `/me/annual-summary?year=2026` | purchases tracked, returns and registrations completed, claims, user-reported refunds (never "money saved") |
 | POST | `/me/restore-purchases` | reconcile with RevenueCat after a client restore |
 | PUT/GET/DELETE | `/me/devices` | push installations; a token moves between accounts on account switch |
 | POST/GET | `/me/exports`, `/me/exports/:id` | data + original-file export (never paywalled) |
@@ -42,7 +43,7 @@ Conventions:
 `POST /public/support` · `GET /public/retention-schedule` · `GET /public/plans`
 
 ## Home
-`GET /action-center?horizon_days=60` returns overdue items first, then returns, registrations, coverage, claim follow-ups and maintenance. Missing information is listed separately.
+`GET /action-center?horizon_days=60` returns the "Protect your first purchase" empty state when there are no items; otherwise overdue items first, then returns, registrations, coverage, claim follow-ups and maintenance. Missing information is listed separately.
 
 ## Purchases & items
 | Method | Path | Notes |
@@ -54,7 +55,7 @@ Conventions:
 | POST | `/items` | manual quick add (single line purchase) |
 | GET | `/items` | `q, category_id, status(active_coverage/expired_coverage/return_soon/registration_pending/unconfirmed), lifecycle, archived, sort(purchase_date/created_at/coverage_urgency/value/name)` |
 | GET/PATCH/DELETE | `/items/:id` | detail includes coverage, documents, claims and timeline; delete removes links, never a shared receipt |
-| GET | `/items/:id/timeline`, `/items/:id/coverage`, `/items/:id/coverage-suggestions` | suggestions are labelled and never applied automatically |
+| GET | `/items/:id/timeline`, `/items/:id/coverage`, `/items/:id/coverage-suggestions` | warranty, card-benefit, return-policy and registration suggestions; labelled and never applied automatically |
 | POST | `/items/:id/warranties`, `/items/:id/return-windows`, `/items/:id/registrations` | `confirm: true` / `accept_estimate: true` are explicit |
 | PATCH/DELETE | `/warranties/:id`, `/return-windows/:id`, `/registrations/:id` | editing a deadline supersedes old reminder versions |
 
@@ -109,7 +110,7 @@ Conventions:
 `POST /analytics/events` (allow-listed events and properties only, with consent)
 
 ## Webhooks & internal
-`POST /webhooks/revenuecat` · `POST /webhooks/inbound-email` · `POST /internal/cron/:task` (`X-Cron-Secret`; tasks: reminders, cleanup, billing_reconcile, storage_backup, profitability, monthly_digest, retention)
+`POST /webhooks/revenuecat` · `POST /webhooks/inbound-email` · `POST /internal/cron/:task` (`X-Cron-Secret`; tasks: reminders, cleanup, uploads, billing_reconcile, storage_backup, profitability, monthly_digest, retention)
 
 ## Admin (`/v1/admin`, admin_users + MFA, audited)
 `/health` · `/jobs` (+ retry/cancel) · `/notification-deliveries/failed` · `/scans/failed` · `/users/:id`

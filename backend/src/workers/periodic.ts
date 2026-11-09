@@ -3,7 +3,7 @@
  * (POST /v1/internal/cron/:task with X-Cron-Secret) by an external scheduler.
  */
 import { check } from '../lib/errors.js';
-import { serviceClient } from '../lib/supabase.js';
+import { BUCKETS, serviceClient } from '../lib/supabase.js';
 import { reconcileExpiring } from '../services/billing/billing.service.js';
 import { purgeExpiredExports } from '../services/export.service.js';
 import { enqueueJob } from '../services/ops.service.js';
@@ -33,7 +33,30 @@ export async function retentionPurge() {
   return { ...results, ...cleanup };
 }
 
+/**
+ * Upload recovery: verify uploads whose client never called /complete, and remove
+ * the stored bytes of uploads that were abandoned (so no orphaned objects remain).
+ */
+export async function recoverUploads() {
+  const svc = serviceClient();
+  const pending = check(await svc.rpc('worker_pending_uploads', { p_older_than: '10 minutes', p_limit: 200 })) as Array<{ id: string }>;
+  for (const p of pending) {
+    await enqueueJob('upload_verify', { attachment_id: p.id }, { dedupeKey: `verify:${p.id}`, maxAttempts: 3 });
+  }
+  const abandoned = check(await svc.rpc('worker_abandoned_uploads', { p_limit: 200 })) as Array<{ id: string; storage_path: string }>;
+  let removed = 0;
+  for (let i = 0; i < abandoned.length; i += 100) {
+    const chunk = abandoned.slice(i, i + 100);
+    const rm = await svc.storage.from(BUCKETS.files).remove(chunk.map((a) => a.storage_path));
+    if (rm.error) continue;
+    check(await svc.from('attachments').delete().in('id', chunk.map((a) => a.id)));
+    removed += chunk.length;
+  }
+  return { verify_queued: pending.length, abandoned_removed: removed };
+}
+
 const TASKS: Record<string, () => Promise<unknown>> = {
+  uploads: () => recoverUploads(),
   reminders: () => dispatchDueReminders(200),
   cleanup: async () => check(await serviceClient().rpc('worker_cleanup_reservations')),
   billing_reconcile: () => reconcileExpiring(),
@@ -53,6 +76,7 @@ export async function runPeriodicTask(name: string): Promise<unknown> {
 export const SCHEDULE: Array<{ task: string; everyMs: number }> = [
   { task: 'reminders', everyMs: 30_000 },
   { task: 'cleanup', everyMs: 10 * 60_000 },
+  { task: 'uploads', everyMs: 5 * 60_000 },
   { task: 'billing_reconcile', everyMs: 60 * 60_000 },
   { task: 'storage_backup', everyMs: 24 * 60 * 60_000 },
   { task: 'profitability', everyMs: 24 * 60 * 60_000 },

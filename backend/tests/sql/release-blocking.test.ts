@@ -592,3 +592,74 @@ describe('11. column-level write restrictions (direct PostgREST access)', () => 
     });
   });
 });
+
+describe('12. audit gap fixes', () => {
+  it('time status uses the user timezone date', async () => {
+    const u = await createUser(db, 'tz@example.com');
+    await db.query(`update public.profiles set timezone = 'Pacific/Kiritimati' where id = $1`, [u]); // UTC+14
+    await asUser(db, u, async (tx) => {
+      const item = (await tx.query<{ id: string }>(`insert into public.items (user_id, name) values ($1, 'Clock') returning id`, [u])).rows[0]!.id;
+      await tx.query(`insert into public.warranties (user_id, item_id, coverage_type, term_kind, end_date, date_certainty, confirmed_at)
+                      values ($1, $2, 'manufacturer', 'fixed_date', (now() at time zone 'Pacific/Kiritimati')::date + 10, 'user_confirmed', now())`, [u, item]);
+      const r = await tx.query<{ days_remaining: number }>(`select days_remaining from public.coverage_status where item_id = $1`, [item]);
+      expect(r.rows[0]!.days_remaining).toBe(10);
+    });
+  });
+
+  it('a downgraded owner keeps existing shares but cannot add new ones', async () => {
+    const owner = await createUser(db, 'downgrade@example.com');
+    await asService(db, (tx) => tx.query(`insert into public.entitlements (user_id, entitlement_key, environment, state, valid_until, store)
+      values ($1, 'pro', 'PRODUCTION', 'active', now() + interval '1 year', 'app_store')`, [owner]));
+    const ws = (await asUser(db, owner, (tx) => tx.query<{ id: string }>(
+      `insert into public.workspaces (owner_id, kind, name) values ($1, 'household', 'Flat') returning id`, [owner]))).rows[0]!.id;
+    const [a, b] = await asUser(db, owner, async (tx) => [
+      (await tx.query<{ id: string }>(`insert into public.items (user_id, name) values ($1, 'TV') returning id`, [owner])).rows[0]!.id,
+      (await tx.query<{ id: string }>(`insert into public.items (user_id, name) values ($1, 'Fridge') returning id`, [owner])).rows[0]!.id,
+    ]);
+    await asUser(db, owner, (tx) => tx.query(`insert into public.workspace_items (workspace_id, item_id, user_id, shared_by) values ($1, $2, $3, $3)`, [ws, a, owner]));
+    await asService(db, (tx) => tx.query(`update public.entitlements set valid_until = now() - interval '1 second' where user_id = $1`, [owner]));
+    await expectError(asUser(db, owner, (tx) => tx.query(
+      `insert into public.workspace_items (workspace_id, item_id, user_id, shared_by) values ($1, $2, $3, $3)`, [ws, b, owner])), /plan_feature_unavailable:workspaces/);
+    const kept = await asUser(db, owner, (tx) => tx.query<{ n: number }>(`select count(*)::int n from public.workspace_items where workspace_id = $1`, [ws]));
+    expect(kept.rows[0]!.n).toBe(1);
+  });
+
+  it('annual summary counts tracked purchases and reported refunds only', async () => {
+    const u = await createUser(db, 'annual@example.com');
+    await asUser(db, u, async (tx) => {
+      await tx.query(`select public.create_purchase($1::jsonb)`, [JSON.stringify({
+        idempotency_key: 'annual-0001', purchase_date: '2026-03-01', currency: 'USD', subtotal: 100, total_paid: 100,
+        lines: [{ line_index: 0, line_amount: 100, item: { name: 'Blender', purchase_price: 100 } }] })]);
+      const r = await tx.query<{ s: any }>(`select public.get_annual_summary(2026) as s`);
+      expect(r.rows[0]!.s.purchases_tracked).toBe(1);
+      expect(Number(r.rows[0]!.s.purchase_value_tracked.USD)).toBe(100);
+      expect(r.rows[0]!.s.refunds_reported).toEqual({});
+      expect(r.rows[0]!.s.note).toMatch(/not money saved/);
+    });
+  });
+
+  it('registration suggestions come from curated brand data', async () => {
+    const u = await createUser(db, 'regsuggest@example.com');
+    await db.query(`update public.brands set registration_url = 'https://example.com/register' where name = 'Dyson'`);
+    await asUser(db, u, async (tx) => {
+      const item = (await tx.query<{ id: string }>(`insert into public.items (user_id, name, brand) values ($1, 'V15', 'dyson') returning id`, [u])).rows[0]!.id;
+      const r = await tx.query<{ s: any[] }>(`select public.suggest_registration($1) as s`, [item]);
+      expect(r.rows[0]!.s).toHaveLength(1);
+      expect(r.rows[0]!.s[0].requirement_state).toBe('unknown');
+    });
+  });
+
+  it('pending and abandoned uploads are visible to the recovery worker only', async () => {
+    const u = await createUser(db, 'abandon@example.com');
+    const id = (await asUser(db, u, (tx) => tx.query<{ id: string }>(
+      `select (public.begin_attachment_upload('abandon-0001', 'receipt', 'r.pdf', 'application/pdf', 100)).id as id`))).rows[0]!.id;
+    await db.query(`update public.attachments set created_at = now() - interval '20 minutes' where id = $1`, [id]);
+    const pending = await asService(db, (tx) => tx.query<{ id: string }>(`select id from public.worker_pending_uploads()`));
+    expect(pending.rows.map((r) => r.id)).toContain(id);
+    await db.query(`update public.attachments set upload_expires_at = now() - interval '1 minute' where id = $1`, [id]);
+    await asService(db, (tx) => tx.query(`select public.worker_cleanup_reservations()`));
+    const abandoned = await asService(db, (tx) => tx.query<{ id: string }>(`select id from public.worker_abandoned_uploads()`));
+    expect(abandoned.rows.map((r) => r.id)).toContain(id);
+    await expectError(asUser(db, u, (tx) => tx.query(`select * from public.worker_abandoned_uploads()`)), /permission denied/);
+  });
+});

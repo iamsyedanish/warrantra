@@ -57,6 +57,7 @@ export function userRoutes(): Router {
   r.post('/me/ai-consent', wrap(MeController.aiConsent));
   r.get('/me/entitlement', wrap(MeController.entitlement));
   r.get('/me/usage', wrap(MeController.usage));
+  r.get('/me/annual-summary', wrap(MeController.annualSummary));
   r.post('/me/restore-purchases', wrap(MeController.restorePurchases));
   r.get('/me/devices', wrap(MeController.listDevices));
   r.put('/me/devices', wrap(MeController.registerDevice));

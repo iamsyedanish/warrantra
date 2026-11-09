@@ -36,7 +36,15 @@ const HANDLERS: Record<string, (p: Record<string, any>) => Promise<unknown>> = {
   profitability_snapshot: (p) => computeSnapshot(p.month),
   monthly_digest: () => queueMonthlyDigests(),
   retention_purge: () => retentionPurge(),
-  upload_verify: (p) => completeUpload(p.attachment_id),
+  upload_verify: async (p) => {
+    try {
+      return await completeUpload(p.attachment_id);
+    } catch (err) {
+      // Object not uploaded yet: leave it; the reservation cleanup expires it after 1 hour.
+      if ((err as { code?: string }).code === 'upload_not_found') return { pending: true };
+      throw err;
+    }
+  },
   maintenance: async (p) => {
     if (p.task === 'delete_attachment') {
       const svc = serviceClient();

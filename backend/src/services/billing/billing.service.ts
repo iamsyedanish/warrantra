@@ -176,11 +176,16 @@ export async function processBillingEvent(billingEventId: string) {
       if (rev.kind === 'purchase' && ev.environment === productionEnv) {
         const profile = await svc.from('profiles').select('acquisition_channel, referral_code').eq('id', primary).maybeSingle();
         const first = new Date(rev.occurred_at);
+        const code = (profile.data?.referral_code as string | null)?.trim().toUpperCase();
+        const referral = code
+          ? (await svc.from('partner_referral_codes').select('partner_id').eq('code', code).eq('active', true).maybeSingle()).data
+          : null;
         const { error } = await svc.from('customer_acquisitions').insert({
           user_id: primary,
           first_paid_at: rev.occurred_at,
           cohort_month: `${first.getUTCFullYear()}-${String(first.getUTCMonth() + 1).padStart(2, '0')}-01`,
-          channel: (profile.data?.acquisition_channel as string | null) ?? 'organic',
+          channel: referral ? 'partner' : (profile.data?.acquisition_channel as string | null) ?? 'organic',
+          partner_id: (referral?.partner_id as string | undefined) ?? null,
           first_product: rev.product_id,
           billing_period: rev.billing_period,
         });

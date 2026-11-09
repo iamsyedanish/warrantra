@@ -119,6 +119,10 @@ export const coverage = {
   /** Labelled suggestions from curated reference data; never auto-applied. */
   suggestions: async (db: Db, itemId: string) => {
     await Items(db).get(itemId, 'item_not_found');
-    return check(await db.rpc('suggest_coverage', { p_item_id: itemId }));
+    const [cov, reg] = await Promise.all([
+      db.rpc('suggest_coverage', { p_item_id: itemId }),
+      db.rpc('suggest_registration', { p_item_id: itemId }),
+    ]);
+    return { ...(check(cov) as Record<string, unknown>), registrations: check(reg) };
   },
 };

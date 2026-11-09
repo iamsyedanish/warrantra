@@ -16,7 +16,7 @@ import type { ScanBody } from '../validators/index.js';
 import { AiProviderError, extractStructured, type AiInput, type AiUsage } from './ai/provider.js';
 import { LABEL_PROMPT_VERSION, LABEL_SYSTEM, RECEIPT_PROMPT_VERSION, RECEIPT_SYSTEM, wrapDocumentText } from './ai/prompts.js';
 import { ProductLabelExtraction, ReceiptExtraction, SCHEMA_VERSION } from './ai/schema.js';
-import { validateReceiptCandidate } from './ai/validate.js';
+import { validateLabelCandidate, validateReceiptCandidate } from './ai/validate.js';
 import { enqueueJob, track } from './ops.service.js';
 
 type Row = Record<string, unknown>;
@@ -160,8 +160,8 @@ export async function processScanJob(payload: { scan_job_id: string; ocr_text: s
           locale: profile.country_code as 'US' | 'CA' | 'GB',
           today: todayIn(String(profile.timezone)),
         })
-      : output;
-    const warnings = isReceipt ? (draft as { warnings: string[] }).warnings : (output as ProductLabelExtraction).warnings;
+      : validateLabelCandidate(output as ProductLabelExtraction);
+    const warnings = (draft as { warnings: string[] }).warnings;
 
     await svc.rpc('worker_settle_usage', { p_reservation_id: job.usage_reservation_id });
     const done = check(await svc.from('scan_jobs').update({

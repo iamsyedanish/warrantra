@@ -23,6 +23,7 @@ uniqueness, no `required` boolean on registrations).
 | Profitability & cohort monitoring | P0 | migration 0015; `profitability/*` (spec formula, recognised revenue, CAC amortization without double counting, F/N, after-tax, cohort payback, margin alerts) | unit reproduces the spec table ($6.47 / $4.82 / $6.16; 1,497 subscribers) |
 | Product/business analytics | P0 | allow-listed events with a sanitizing trigger; `admin_product_metrics` with explicit numerators and denominators | SQL §8 |
 | Backup & restore | P0 | `backup.service.ts` (separate S3 copy, checksums, purge on deletion, restore drill), `scripts/restore-drill.ts` | SQL §7 tombstones |
+| Annual summary (v2 §32) | later | `get_annual_summary` + `/me/annual-summary`; counts and user-reported refunds only | SQL §12 |
 | Outcome ledger | P0 | `outcomes` (one per case, evidence level, "helped?"); summary never counts purchase value | — |
 | Share-to-app capture | P1 | `capture_drafts` + `/capture-drafts` | — |
 | Email forwarding | P1 | migration 0012; `capture.service.ts` (rotatable address, basic-auth webhook, DKIM/SPF verdict, screening, daily quota, Message-ID and checksum dedupe, atomic storage quota) | unit sender verdict |
@@ -51,6 +52,15 @@ uniqueness, no `required` boolean on registrations).
 6. **Cancellation, refunds, replay, sandbox** — SQL §6 and unit reconcile tests.
 7. **Export after cancellation, deletion survives failures, restore respects deletions** — SQL §7 (tombstones). Export and deletion workers still need live-stack tests.
 8. **No leaks** — unit redaction/scrub tests; keys live only in server environment variables.
+
+## Post-build audit fixes (migration 0019)
+
+- Coverage time status and item lists use the user's IANA-timezone date rather than server UTC.
+- Uploads where the client never called `/complete` are verified by the worker; abandoned objects are removed from Storage.
+- Workspace sharing follows the owner's current plan. Existing shares survive a downgrade; new shares pause.
+- Registration suggestions from curated brand data. Partner referral codes are attributed to the first paid cohort.
+- Churn (numerator/denominator) in the profitability snapshot. Product-label scans get the same evidence-or-null validation as receipts.
+- The Home empty state ("Protect your first purchase").
 
 ## What is not yet verified (be explicit)
 

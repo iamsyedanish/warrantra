@@ -108,6 +108,14 @@ export async function computeSnapshot(monthIso?: string) {
   const monthSpend = spend.filter((x) => x.month === ymd(month)).reduce((a, x) => a + Number(x.amount_usd), 0);
   const newPaying = (await svc.from('customer_acquisitions').select('user_id', { count: 'exact', head: true }).eq('cohort_month', ymd(month))).count ?? 0;
 
+  // Churn: paid access that ended (expired/refunded) during the month / paying at month start.
+  const atStart = check(await svc.from('entitlements').select('user_id').eq('environment', 'PRODUCTION')
+    .lte('valid_from', month.toISOString()).gte('valid_until', month.toISOString())) as Row[];
+  const ended = check(await svc.from('entitlements').select('user_id').eq('environment', 'PRODUCTION')
+    .in('state', ['expired', 'refunded']).gte('valid_until', month.toISOString()).lt('valid_until', next.toISOString())) as Row[];
+  const startSet = new Set(atStart.map((x) => String(x.user_id)));
+  const churned = ended.filter((x) => startSet.has(String(x.user_id))).length;
+
   const pretaxTotal = netReceipts - variablePaid - freeSubsidy - fixed - cacAmortized;
   const pretaxPerPaid = N > 0 ? pretaxTotal / N : null;
   const afterTaxPerPaid = pretaxPerPaid === null ? null : pretaxPerPaid - Math.max(pretaxPerPaid, 0) * t;
@@ -144,6 +152,9 @@ export async function computeSnapshot(monthIso?: string) {
       net_receipts_factor: Math.round(factor * 10_000) / 10_000,
       effective_platform_fee_rate: Math.round(rev.effectiveFeeRate * 10_000) / 10_000,
       variable_cost_source: measuredVariable ? 'measured' : 'model_floor',
+      churn: { definition: 'Paying at month start whose paid access ended (expired/refunded) during the month',
+               numerator: churned, denominator: startSet.size,
+               rate: startSet.size ? Math.round((churned / startSet.size) * 10_000) / 10_000 : null },
       cac_amortized_total_usd: money(cacAmortized),
       warnings: [
         ...(fixed === 0 ? ['No fixed/founder costs entered for this month — profit is overstated.'] : []),
