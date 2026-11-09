@@ -1,0 +1,52 @@
+{
+  "name": "warrantra-backend",
+  "version": "0.1.0",
+  "description": "Warrantra purchase-protection backend API (Supabase, MVC)",
+  "main": "dist/server.js",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/server.js",
+    "worker": "tsx src/workers/run.ts",
+    "worker:prod": "node dist/workers/run.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:sql": "vitest run tests/sql",
+    "db:check": "tsx scripts/check-migrations.ts",
+    "restore:drill": "tsx scripts/restore-drill.ts"
+  },
+  "type": "module",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.6.0",
+    "@aws-sdk/client-s3": "^3.1164.0",
+    "@supabase/supabase-js": "^2.119.0",
+    "cors": "^2.8.6",
+    "dotenv": "^18.0.10",
+    "express": "^5.3.0",
+    "express-rate-limit": "^8.7.3",
+    "file-type": "^22.3.0",
+    "google-auth-library": "^11.3.3",
+    "helmet": "^8.3.0",
+    "pdf-lib": "^1.17.1",
+    "pdfkit": "^0.20.2",
+    "pino": "^10.4.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.5.15",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/node": "^26.6.6",
+    "@types/pdfkit": "^0.17.7",
+    "@types/supertest": "^7.2.1",
+    "pino-pretty": "^13.2.0",
+    "supertest": "^7.3.2",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^5.1.0"
+  },
+  "private": true,
+  "engines": {
+    "node": ">=20"
+  }
+}
