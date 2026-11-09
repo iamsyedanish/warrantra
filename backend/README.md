@@ -51,14 +51,28 @@ npm install
 cp .env.example .env    # fill in Supabase keys, HASH_PEPPER, webhook secrets
 ```
 
-Apply the database (requires the Supabase CLI and Docker for a local stack):
+### Database migrations
+
+Set `DATABASE_URL` in `.env` (Supabase Dashboard → **Connect** → Direct connection or
+Session pooler, port 5432), then:
 
 ```bash
-supabase start
-supabase db reset        # runs supabase/migrations/* then supabase/seed.sql
+npm run db:migrate            # apply every pending file in supabase/migrations, in order
+npm run db:migrate -- --seed  # ...and load supabase/seed.sql (categories, brands)
+npm run db:status             # applied / pending / edited files
+npm run db:seed               # seed only
+npm run db:migrate -- --dry-run
 ```
 
-For a hosted project: `supabase link --project-ref <ref>` then `supabase db push`.
+How it works:
+- Files run in name order. Each one runs in its own transaction, so a failing file rolls back completely and stops the run.
+- Applied versions go in `supabase_migrations.schema_migrations`, the same table the Supabase CLI uses, so `supabase db push` stays compatible.
+- SHA-256 checksums are recorded, and editing an already-applied file is refused. Add a new file instead.
+- An advisory lock stops two runs from overlapping.
+- It refuses the transaction pooler (port 6543) and databases without Supabase's `auth`/`storage` schemas.
+- After migrating, it checks that every public table has row-level security.
+
+To add a change, create `supabase/migrations/<timestamp>_<name>.sql` and run `npm run db:migrate`.
 
 Run the API and the worker as separate processes:
 

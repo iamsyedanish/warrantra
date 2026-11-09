@@ -77,6 +77,13 @@ export function migrationFiles(): string[] {
     .sort();
 }
 
+/** A database with only the Supabase shim (no migrations), for testing the migration runner. */
+export async function createShimDatabase(): Promise<PGlite> {
+  const db = new PGlite({ extensions: { pg_trgm } });
+  await db.exec(SUPABASE_SHIM);
+  return db;
+}
+
 export async function createDatabase(opts: { seed?: boolean } = {}): Promise<PGlite> {
   const db = new PGlite({ extensions: { pg_trgm } });
   await db.exec(SUPABASE_SHIM);
