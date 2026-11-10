@@ -559,12 +559,12 @@ describe('10. action center & timeline', () => {
   it('orders overdue first, then return, registration, coverage', async () => {
     const u = await createUser(db, 'action@example.com');
     await asUser(db, u, async (tx) => {
-      const item = (await tx.query<{ id: string }>(`insert into public.items (user_id, name, purchase_date) values ($1, 'AirPods', current_date - 29) returning id`, [u])).rows[0]!.id;
+      const item = (await tx.query<{ id: string }>(`insert into public.items (user_id, name, purchase_date) values ($1, 'AirPods', app_private.user_today($1) - 29) returning id`, [u])).rows[0]!.id;
       await tx.query(`insert into public.return_windows (user_id, item_id, terms_state, policy_anchor, window_days, deadline_basis, date_certainty, confirmed_at)
                       values ($1, $2, 'known', 'purchase_date', 30, 'request_by', 'user_confirmed', now())`, [u, item]);
-      await tx.query(`insert into public.registrations (user_id, item_id, deadline, deadline_certainty) values ($1, $2, current_date + 5, 'user_confirmed')`, [u, item]);
+      await tx.query(`insert into public.registrations (user_id, item_id, deadline, deadline_certainty) values ($1, $2, app_private.user_today($1) + 5, 'user_confirmed')`, [u, item]);
       await tx.query(`insert into public.warranties (user_id, item_id, coverage_type, term_kind, end_date, date_certainty, confirmed_at)
-                      values ($1, $2, 'manufacturer', 'fixed_date', current_date + 27, 'document_verified', now())`, [u, item]);
+                      values ($1, $2, 'manufacturer', 'fixed_date', app_private.user_today($1) + 27, 'document_verified', now())`, [u, item]);
       const ac = await tx.query<{ kind: string; title: string }>(`select kind, title from public.get_action_center(60)`);
       expect(ac.rows.slice(0, 3).map((r) => r.kind)).toEqual(['return_deadline', 'registration_deadline', 'coverage_ending']);
       expect(ac.rows[0]!.title).toBe('Return window ends tomorrow');

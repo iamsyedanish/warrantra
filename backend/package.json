@@ -17,7 +17,8 @@
     "db:migrate": "tsx scripts/migrate.ts",
     "db:status": "tsx scripts/migrate.ts status",
     "db:seed": "tsx scripts/migrate.ts seed-only",
-    "db:test-server": "tsx scripts/pg-test-server.ts"
+    "db:test-server": "tsx scripts/pg-test-server.ts",
+    "smoke:live": "tsx scripts/smoke-live.ts"
   },
   "type": "module",
   "dependencies": {

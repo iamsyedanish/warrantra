@@ -2,6 +2,7 @@
  * Periodic tasks. Run by the worker loop on a cadence, or triggered over HTTP
  * (POST /v1/internal/cron/:task with X-Cron-Secret) by an external scheduler.
  */
+import { env } from '../config/env.js';
 import { check } from '../lib/errors.js';
 import { BUCKETS, serviceClient } from '../lib/supabase.js';
 import { reconcileExpiring } from '../services/billing/billing.service.js';
@@ -60,7 +61,11 @@ const TASKS: Record<string, () => Promise<unknown>> = {
   reminders: () => dispatchDueReminders(200),
   cleanup: async () => check(await serviceClient().rpc('worker_cleanup_reservations')),
   billing_reconcile: () => reconcileExpiring(),
-  storage_backup: async () => ({ job_id: await enqueueJob('storage_backup', { mode: 'incremental' }, { dedupeKey: 'storage-backup' }) }),
+  storage_backup: async () => {
+    // Skip quietly until a backup target is configured (avoids retry noise in failed-job views).
+    if (!env().BACKUP_S3_BUCKET || !env().BACKUP_S3_ACCESS_KEY_ID) return { skipped: 'backup_not_configured' };
+    return { job_id: await enqueueJob('storage_backup', { mode: 'incremental' }, { dedupeKey: 'storage-backup' }) };
+  },
   profitability: async () => ({ job_id: await enqueueJob('profitability_snapshot', {}, { dedupeKey: `profit:${new Date().toISOString().slice(0, 10)}` }) }),
   monthly_digest: () => queueMonthlyDigests(),
   retention: () => retentionPurge(),
