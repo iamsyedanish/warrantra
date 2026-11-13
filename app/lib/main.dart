@@ -6,11 +6,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'core/router/app_router.dart';
 import 'core/storage/secure_store.dart';
 import 'core/theme/app_theme.dart';
+import 'demo/demo_mode.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final prefs = await SharedPreferences.getInstance();
-  runApp(ProviderScope(overrides: [sharedPrefsProvider.overrideWithValue(prefs)], child: const WarrantraApp()));
+  runApp(ProviderScope(overrides: [sharedPrefsProvider.overrideWithValue(prefs), if (demoMode) ...demoOverrides], child: const WarrantraApp()));
 }
 
 class WarrantraApp extends ConsumerWidget {

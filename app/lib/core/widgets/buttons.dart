@@ -6,14 +6,23 @@ enum WButtonKind { primary, secondary, ghost, danger }
 
 /// Prototype `.btn` family: primary / secondary / ghost (+ danger for destructive).
 class WButton extends StatelessWidget {
-  const WButton(this.label, {super.key, this.onPressed, this.kind = WButtonKind.primary, this.icon, this.loading = false, this.expand = true, this.compact = false});
+  const WButton(
+    this.label, {
+    super.key,
+    this.onPressed,
+    this.kind = WButtonKind.primary,
+    this.icon,
+    this.loading = false,
+    this.expand = true,
+    this.compact = false,
+  });
 
   const WButton.secondary(this.label, {super.key, this.onPressed, this.icon, this.loading = false, this.expand = true, this.compact = false})
-      : kind = WButtonKind.secondary;
+    : kind = WButtonKind.secondary;
   const WButton.ghost(this.label, {super.key, this.onPressed, this.icon, this.loading = false, this.expand = false, this.compact = true})
-      : kind = WButtonKind.ghost;
+    : kind = WButtonKind.ghost;
   const WButton.danger(this.label, {super.key, this.onPressed, this.icon, this.loading = false, this.expand = true, this.compact = false})
-      : kind = WButtonKind.danger;
+    : kind = WButtonKind.danger;
 
   final String label;
   final VoidCallback? onPressed;
@@ -42,14 +51,23 @@ class WButton extends StatelessWidget {
         else if (icon != null)
           Icon(icon, size: 18, color: fg),
         if (loading || icon != null) const SizedBox(width: 8),
-        Flexible(child: Text(label, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: compact ? 14 : 15, fontWeight: FontWeight.w500, color: fg))),
+        Flexible(
+          child: Text(
+            label,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(fontSize: compact ? 14 : 15, fontWeight: FontWeight.w500, color: fg),
+          ),
+        ),
       ],
     );
     return Opacity(
       opacity: enabled || loading ? 1 : 0.45,
       child: Material(
         color: bg,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(WRadius.md), side: BorderSide(color: border)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(WRadius.md),
+          side: BorderSide(color: border),
+        ),
         child: InkWell(
           onTap: enabled ? onPressed : null,
           borderRadius: BorderRadius.circular(WRadius.md),
@@ -75,14 +93,23 @@ class WIconButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = context.w;
     final btn = Material(
-      color: c.surface,
-      shape: CircleBorder(side: BorderSide(color: c.divider)),
+      color: Colors.transparent,
+      shape: const CircleBorder(),
       child: InkWell(
         customBorder: const CircleBorder(),
         onTap: onPressed,
-        child: SizedBox(width: size, height: size, child: Icon(icon, size: 20, color: c.text)),
+        child: SizedBox(
+          width: size,
+          height: size,
+          child: Icon(icon, size: 22, color: c.text),
+        ),
       ),
     );
-    return tooltip == null ? btn : Tooltip(message: tooltip!, child: Semantics(button: true, label: tooltip, child: btn));
+    return tooltip == null
+        ? btn
+        : Tooltip(
+            message: tooltip!,
+            child: Semantics(button: true, label: tooltip, child: btn),
+          );
   }
 }

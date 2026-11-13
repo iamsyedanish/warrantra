@@ -46,29 +46,32 @@ class WField extends StatelessWidget {
     final c = context.w;
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(label, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: c.textMuted)),
-        const SizedBox(height: 6),
-        TextField(
-          controller: controller,
-          keyboardType: keyboardType,
-          obscureText: obscure,
-          maxLines: obscure ? 1 : maxLines,
-          minLines: maxLines > 1 ? 3 : 1,
-          onChanged: onChanged,
-          readOnly: readOnly,
-          onTap: onTap,
-          inputFormatters: inputFormatters,
-          textInputAction: textInputAction,
-          autofillHints: autofillHints,
-          style: TextStyle(fontSize: 15, color: c.text),
-          decoration: InputDecoration(hintText: hint, suffixIcon: suffix, errorText: error),
-        ),
-        if (helper != null) ...[
-          const SizedBox(height: 4),
-          Text(helper!, style: TextStyle(fontSize: 12, color: c.textSubtle)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: c.textMuted),
+          ),
+          const SizedBox(height: 6),
+          TextField(
+            controller: controller,
+            keyboardType: keyboardType,
+            obscureText: obscure,
+            maxLines: obscure ? 1 : maxLines,
+            minLines: maxLines > 1 ? 3 : 1,
+            onChanged: onChanged,
+            readOnly: readOnly,
+            onTap: onTap,
+            inputFormatters: inputFormatters,
+            textInputAction: textInputAction,
+            autofillHints: autofillHints,
+            style: TextStyle(fontSize: 15, color: c.text),
+            decoration: InputDecoration(hintText: hint, suffixIcon: suffix, errorText: error),
+          ),
+          if (helper != null) ...[const SizedBox(height: 4), Text(helper!, style: TextStyle(fontSize: 12, color: c.textSubtle))],
         ],
-      ]),
+      ),
     );
   }
 }
@@ -94,16 +97,14 @@ class WDateField extends StatelessWidget {
       helper: helper,
       readOnly: true,
       suffix: value != null && allowClear
-          ? IconButton(icon: Icon(PhosphorIconsRegular.x, size: 16, color: c.textSubtle), onPressed: () => onChanged(null))
+          ? IconButton(
+              icon: Icon(PhosphorIconsRegular.x, size: 16, color: c.textSubtle),
+              onPressed: () => onChanged(null),
+            )
           : Icon(PhosphorIconsRegular.calendarBlank, size: 18, color: c.textSubtle),
       onTap: () async {
         final now = DateTime.now();
-        final picked = await showDatePicker(
-          context: context,
-          initialDate: value ?? now,
-          firstDate: DateTime(1990),
-          lastDate: DateTime(now.year + 15),
-        );
+        final picked = await showDatePicker(context: context, initialDate: value ?? now, firstDate: DateTime(1990), lastDate: DateTime(now.year + 15));
         if (picked != null) onChanged(picked);
       },
     );
@@ -123,15 +124,23 @@ class WChoiceChips<T> extends StatelessWidget {
     final c = context.w;
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        if (label != null) ...[
-          Text(label!, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: c.textMuted)),
-          const SizedBox(height: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (label != null) ...[
+            Text(
+              label!,
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: c.textMuted),
+            ),
+            const SizedBox(height: 8),
+          ],
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [for (final (v, text) in options) _Pill(text: text, selected: v == value, onTap: () => onChanged(v))],
+          ),
         ],
-        Wrap(spacing: 8, runSpacing: 8, children: [
-          for (final (v, text) in options) _Pill(text: text, selected: v == value, onTap: () => onChanged(v)),
-        ]),
-      ]),
+      ),
     );
   }
 }
@@ -149,20 +158,26 @@ class WMultiChips<T> extends StatelessWidget {
     final c = context.w;
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        if (label != null) ...[
-          Text(label!, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: c.textMuted)),
-          const SizedBox(height: 8),
-        ],
-        Wrap(spacing: 8, runSpacing: 8, children: [
-          for (final (v, text) in options)
-            _Pill(
-              text: text,
-              selected: values.contains(v),
-              onTap: () => onChanged(values.contains(v) ? ({...values}..remove(v)) : ({...values, v})),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (label != null) ...[
+            Text(
+              label!,
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: c.textMuted),
             ),
-        ]),
-      ]),
+            const SizedBox(height: 8),
+          ],
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final (v, text) in options)
+                _Pill(text: text, selected: values.contains(v), onTap: () => onChanged(values.contains(v) ? ({...values}..remove(v)) : ({...values, v}))),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }
@@ -180,16 +195,21 @@ class _Pill extends StatelessWidget {
       button: true,
       child: Material(
         color: selected ? c.accentSoft : c.surface,
-        shape: StadiumBorder(side: BorderSide(color: selected ? c.accentRing : c.divider)),
+        shape: StadiumBorder(side: BorderSide(color: selected ? c.accent : c.divider)),
         child: InkWell(
           customBorder: const StadiumBorder(),
           onTap: onTap,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-            child: Row(mainAxisSize: MainAxisSize.min, children: [
-              if (selected) ...[Icon(PhosphorIconsBold.check, size: 13, color: c.accentSoftText), const SizedBox(width: 5)],
-              Text(text, style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w500, color: selected ? c.accentSoftText : c.text)),
-            ]),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  text,
+                  style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w500, color: selected ? c.accentSoftText : c.text),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -217,17 +237,26 @@ class WCheckRow extends StatelessWidget {
       borderRadius: BorderRadius.circular(WRadius.md),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 9),
-        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Icon(icon, size: 22, color: value ? c.accent : c.textSubtle),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(title, style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w500, color: c.text)),
-              if (subtitle != null) Text(subtitle!, style: TextStyle(fontSize: 12.5, height: 1.4, color: c.textMuted)),
-            ]),
-          ),
-          if (trailing != null) trailing!,
-        ]),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, size: 22, color: value ? c.accent : c.textSubtle),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w500, color: c.text),
+                  ),
+                  if (subtitle != null) Text(subtitle!, style: TextStyle(fontSize: 12.5, height: 1.4, color: c.textMuted)),
+                ],
+              ),
+            ),
+            if (trailing != null) trailing!,
+          ],
+        ),
       ),
     );
   }
@@ -245,15 +274,23 @@ class WSwitchRow extends StatelessWidget {
     final c = context.w;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(children: [
-        Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(title, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: c.text)),
-            if (subtitle != null) Text(subtitle!, style: TextStyle(fontSize: 12.5, height: 1.4, color: c.textMuted)),
-          ]),
-        ),
-        Switch(value: value, onChanged: onChanged),
-      ]),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: c.text),
+                ),
+                if (subtitle != null) Text(subtitle!, style: TextStyle(fontSize: 12.5, height: 1.4, color: c.textMuted)),
+              ],
+            ),
+          ),
+          Switch(value: value, onChanged: onChanged),
+        ],
+      ),
     );
   }
 }
