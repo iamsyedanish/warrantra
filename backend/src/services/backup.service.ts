@@ -76,7 +76,33 @@ export async function runStorageBackup(batch = 500) {
     objects_scanned: scanned, objects_copied: copied, bytes_copied: bytes, error_count: errors, last_error: lastError,
     completed_at: new Date().toISOString(),
   }).eq('id', run.id as string);
-  return { scanned, copied, bytes, errors };
+  const retention = await purgeExpiredBackups();
+  return { scanned, copied, bytes, errors, retention };
+}
+
+/**
+ * Retention: a backup copy is kept for `storage_backups` days after its original
+ * disappears (user deleted the document), then purged from the backup target.
+ */
+export async function purgeExpiredBackups() {
+  const { client, bucket } = backupClient();
+  const svc = serviceClient();
+  const marked = check(await svc.rpc('worker_mark_missing_backup_sources', { p_limit: 2000 })) as number;
+  const policy = check(await svc.from('retention_policies').select('retention_days').eq('data_class', 'storage_backups').maybeSingle()) as { retention_days: number } | null;
+  const expired = check(await svc.rpc('worker_expired_backup_objects', { p_retention_days: policy?.retention_days ?? 35, p_limit: 1000 })) as
+    Array<{ bucket: string; storage_path: string; backup_key: string }>;
+  let purged = 0;
+  for (let i = 0; i < expired.length; i += 1000) {
+    const chunk = expired.slice(i, i + 1000);
+    const res = await client.send(new DeleteObjectsCommand({ Bucket: bucket, Delete: { Objects: chunk.map((o) => ({ Key: o.backup_key })), Quiet: true } }));
+    const failed = new Set((res.Errors ?? []).map((e) => e.Key));
+    const ok = chunk.filter((o) => !failed.has(o.backup_key));
+    for (const o of ok) {
+      await svc.from('backup_objects').update({ purged_at: new Date().toISOString() }).eq('bucket', o.bucket).eq('storage_path', o.storage_path);
+    }
+    purged += ok.length;
+  }
+  return { marked_missing: marked, purged };
 }
 
 /** Remove a deleted account's originals from the backup target. */

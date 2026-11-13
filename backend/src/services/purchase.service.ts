@@ -115,7 +115,46 @@ export function buildPurchasePayload(idempotencyKey: string, body: PurchaseBody)
   };
 }
 
+type DraftField = { value: string | number | null } | undefined;
+
+/**
+ * Corrections = fields where what the user saved differs from what extraction
+ * proposed (spec §5: record correction rates). Measured by the server, never
+ * trusted from the client.
+ */
+export function countCorrections(draft: Record<string, unknown> | null | undefined, body: PurchaseBody): number {
+  if (!draft) return 0;
+  const norm = (v: unknown) => (v === null || v === undefined || v === '' ? null : String(v).trim().toLowerCase());
+  const money = (v: unknown) => (v === null || v === undefined || v === '' ? null : Number(v).toFixed(2));
+  const field = (k: string) => (draft[k] as DraftField)?.value ?? null;
+  let n = 0;
+  if (norm(field('merchant')) !== norm(body.retailer)) n++;
+  if (norm(field('purchase_date')) !== norm(body.purchase_date)) n++;
+  if (norm(field('delivery_date')) !== norm(body.delivery_date)) n++;
+  if (norm(field('order_number')) !== norm(body.order_number)) n++;
+  if (field('currency') !== null && norm(field('currency')) !== norm(body.currency ?? 'USD')) n++;
+  for (const k of ['subtotal', 'tax', 'shipping', 'discount', 'total_paid'] as const) {
+    if (money(field(k)) !== money(body[k])) n++;
+  }
+  const lines = (draft.lines as Array<{ description: string | null; line_amount: string | null }> | undefined) ?? [];
+  n += Math.abs(lines.length - body.lines.length);
+  body.lines.forEach((l, i) => {
+    const d = lines[i];
+    if (!d) return;
+    if (money(d.line_amount) !== money(l.line_amount)) n++;
+    if (norm(d.description) !== norm(l.original_description ?? l.confirmed_name)) n++;
+  });
+  return n;
+}
+
 export async function createPurchase(db: Db, userId: string, idempotencyKey: string, body: PurchaseBody): Promise<CreatePurchaseResult> {
+  if (body.scan_job_id) {
+    const job = check(await db.from('scan_jobs').select('candidate').eq('id', body.scan_job_id).maybeSingle()) as
+      { candidate: { review_draft?: Record<string, unknown> } | null } | null;
+    body = { ...body, correction_count: countCorrections(job?.candidate?.review_draft, body) };
+  } else {
+    body = { ...body, correction_count: undefined };
+  }
   if (body.purchase_date && body.delivery_date && body.delivery_date < body.purchase_date) {
     throw unprocessable('delivery_before_purchase', 'Delivery date cannot be before the purchase date');
   }

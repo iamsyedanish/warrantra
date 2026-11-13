@@ -62,9 +62,33 @@ uniqueness, no `required` boolean on registrations).
 - Churn (numerator/denominator) in the profitability snapshot. Product-label scans get the same evidence-or-null validation as receipts.
 - The Home empty state ("Protect your first purchase").
 
+## Second audit (migrations 0020–0021)
+
+- **Price experiment (§8/§10):** sticky per-user variant assignment (`GET /v1/me/offer`), draft-only edits, per-variant conversion, revenue and refunds (`/v1/admin/price-experiments`). Seeded as a draft: $169.99 vs $199.99.
+- **Launch gates (§10–§11):** `/v1/admin/launch-gates` checks after-tax target, cost inputs, first-year cohort forecast, refund rate, acquisition spend cap, restore drill freshness, reminder hand-off and critical alerts. `/v1/admin/profitability/forecast` projects each cohort's first year from observed retention.
+- **Acquisition spending cap:** `acquisition_monthly_cap_usd` with a critical alert.
+- **Correction rate (§5):** measured by the server by comparing the saved purchase with the AI draft (the client value is ignored).
+- **Backup retention (§6):** backup copies of deleted documents are purged after the published period, counted from deletion.
+- **Travel/timezone (§7):** `GET /v1/me` returns a `timezone_hint` when the device zone differs from the profile.
+- **Product recognition (v2 §14):** label scans suggest a category and, from reviewed reference data, the standard manufacturer warranty ("…appears to be 24 months. Confirm?").
+- **Claim contact (v2 §20.2):** prefilled from brand support data when the user gives none.
+- **AI image path:** images are EXIF-rotated, transparency is flattened onto white, they are capped at 2048 px and sent as JPEG (originals unchanged). A transparent PNG previously produced an empty draft.
+
+## AI abuse controls
+
+| Abuse | Control |
+|---|---|
+| Free-account farming | Verified email required; daily cap on total free-tier AI spend (`ai_free_tier_daily_budget_usd`) |
+| Using scans as a chatbot / sending non-receipts | Model must classify the document; non-receipts are rejected with nothing extracted, still count (the cost was real) and are an abuse signal |
+| Using claim drafts as a chatbot | Free moderation check first; 2,000-character AI input cap; prompt returns `OFF_TOPIC`; output must look like a claim letter (no code or arbitrary content) or it is rejected |
+| Re-scanning the same file/text | Identical input reuses the earlier result: no AI call, no charge |
+| Repeated abuse | Automatic AI suspension after N signals in 24h (`ai_abuse_signal_threshold_24h`, `ai_suspension_days`); audited; admin can review and lift. Manual entry is never blocked |
+| Volume / cost | Plan quotas, hourly rate limit (counts released attempts too), per-account and global monthly spend caps, kill switch, page/character/output-token limits |
+| Prompt injection | No tools; untrusted-data instructions; strict schema; evidence required for every value; verified live |
+
 ## What is not yet verified (be explicit)
 
-- **Partly live.** Supabase (migrations, Auth, PostgREST/RLS, Storage) and OpenAI are verified live. RevenueCat, FCM/APNs, Postmark, Resend and S3 are not yet. The database tests use PGlite plus a shim of `auth`/`storage`. Run `supabase db reset` and repeat the SQL suite on the real stack.
+- **Partly live.** Supabase (migrations, Auth, PostgREST/RLS, Storage), OpenAI, the worker (scans, billing events, export, deletion) and the RevenueCat webhook path (with simulated events) are verified live — 120 live checks. Not yet: RevenueCat's REST reconciliation (needs the secret key), FCM/APNs push, Postmark inbound, Resend email, S3 backups and the restore drill, and the Docker image build/CI run (no Docker on this machine; no git remote). The database tests use PGlite plus a shim of `auth`/`storage`. Run `supabase db reset` and repeat the SQL suite on the real stack.
 - **Identity-merge trigger.** `guard_identity_linking` sits on `auth.identities`. Supabase manages that schema, so confirm on your project that the trigger is permitted and that Auth surfaces the error as expected.
 - **True concurrency.** The advisory-lock quota checks were exercised sequentially; parallel uploads and scans need a real multi-connection test.
 - **AI provider and cost.** The default is OpenAI `gpt-5.4-mini` (`AI_PROVIDER=openai`, `store: false`); Anthropic remains selectable. A live test measured about $0.003 per receipt action (two receipts, PDF and OCR text), well under the spec's $0.02 assumption, and the model ignored an injected instruction. The image (JPEG/PNG) path and accuracy on real-world receipts are not yet measured; no accuracy claim is made.

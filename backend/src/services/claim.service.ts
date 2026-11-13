@@ -13,7 +13,8 @@ import { sha256Hex } from '../lib/crypto.js';
 import { BUCKETS, serviceClient, type Db } from '../lib/supabase.js';
 import { Claims, linkRows } from '../models/index.js';
 import type { ClaimCreateBody, ClaimPatch, OutcomeBody } from '../validators/index.js';
-import { AiProviderError, generateText } from './ai/provider.js';
+import { AiProviderError, generateText, moderate } from './ai/provider.js';
+import { recordAbuseSignal } from './scan.service.js';
 import { CLAIM_DRAFT_PROMPT_VERSION, CLAIM_DRAFT_SYSTEM } from './ai/prompts.js';
 import { audit, getSetting, track } from './ops.service.js';
 
@@ -25,8 +26,22 @@ const DISCLAIMER =
   'and does not determine eligibility or legal rights. Facts below were reviewed by the customer; items marked "estimated" or "unknown" were not verified.';
 
 export async function createClaim(db: Db, userId: string, body: z.infer<typeof ClaimCreateBody>) {
-  const item = check(await db.from('items').select('id, name').eq('id', body.item_id).maybeSingle()) as Row | null;
+  const item = check(await db.from('items').select('id, name, brand, brand_id').eq('id', body.item_id).maybeSingle()) as Row | null;
   if (!item) throw notFound('item_not_found');
+  // Prefill provider contact from curated brand data when the user gave none (they can edit it).
+  if (!body.provider_contact && (item.brand_id || item.brand)) {
+    let q = db.from('brands').select('name, support_email, support_phone, support_url');
+    q = item.brand_id ? q.eq('id', String(item.brand_id)) : q.eq('normalized_name', String(item.brand).trim().toLowerCase());
+    const b = check(await q.maybeSingle()) as Row | null;
+    if (b && (b.support_email || b.support_phone || b.support_url)) {
+      body = {
+        ...body,
+        provider_name: body.provider_name ?? String(b.name),
+        provider_contact: Object.fromEntries(Object.entries({ email: b.support_email, phone: b.support_phone, url: b.support_url })
+          .filter(([, v]) => v)) as NonNullable<typeof body.provider_contact>,
+      };
+    }
+  }
   const facts = check(await db.rpc('build_claim_facts', { p_item_id: body.item_id, p_warranty_id: body.warranty_id ?? null }));
   const { attachment_ids, ...rest } = body;
   const claim = await Claims(db).insert({
@@ -215,6 +230,10 @@ export async function aiDraft(db: Db, userId: string, claimId: string, idempoten
   if (!limits.ai_claim_draft) throw new AppError(402, 'plan_required', 'AI claim drafts are part of Pro');
   const claim = await Claims(db).get(claimId, 'claim_not_found');
   const facts = reviewedFacts(claim);
+  const issue = String(claim.issue_description ?? '');
+  if (issue.length > 2000) {
+    throw unprocessable('issue_too_long_for_ai', 'Shorten the issue description to 2,000 characters for an AI draft. The factual template has no limit.');
+  }
   const reservation = check(await db.rpc('reserve_ai_action', { p_idempotency_key: `claim:${idempotencyKey}`, p_source_type: 'claim_draft', p_source_id: claimId })) as Row;
   if (reservation.state === 'settled' && claim.ai_draft_text) {
     return { draft: claim.ai_draft_text, reused: true };
@@ -225,13 +244,33 @@ export async function aiDraft(db: Db, userId: string, claimId: string, idempoten
     prompt_version: CLAIM_DRAFT_PROMPT_VERSION, provider: env().AI_PROVIDER, model: env().AI_MODEL, attempts: 1, started_at: new Date().toISOString(),
   }, { onConflict: 'user_id,idempotency_key' }).select('*').single()) as Row;
 
+  // Moderation before any generation (free). Flagged input releases the allowance but is an abuse signal.
+  const mod = await moderate(issue).catch(() => ({ flagged: false, categories: [] as string[] }));
+  if (mod.flagged) {
+    await svc.rpc('worker_release_usage', { p_reservation_id: reservation.id, p_reason: 'moderation_flagged' });
+    await svc.from('scan_jobs').update({ state: 'rejected', error_code: 'moderation_flagged', completed_at: new Date().toISOString() }).eq('id', job.id as string);
+    await recordAbuseSignal(userId);
+    throw unprocessable('content_not_allowed', 'The issue description cannot be used for an AI draft. You can still export the factual template.');
+  }
+
   const prompt = `<facts>\n${JSON.stringify(facts).slice(0, 12_000)}\n</facts>\n<issue>\n${String(claim.issue_description).slice(0, 5000)}\n</issue>\n` +
     `Claim type: ${claim.claim_kind}. Provider: ${claim.provider_name ?? '[provider name]'}.`;
   try {
     const { text, usage } = await generateText({ system: CLAIM_DRAFT_SYSTEM, prompt, maxTokens: env().AI_CLAIM_DRAFT_MAX_TOKENS });
+    if (!isClaimLetter(text)) {
+      // Paid call, wrong purpose: counts as used and is an abuse signal.
+      await svc.from('usage_events').insert({ user_id: userId, scan_job_id: job.id, feature: 'claim_draft', provider: usage.provider, model: usage.model,
+        prompt_version: CLAIM_DRAFT_PROMPT_VERSION, input_tokens: usage.inputTokens, output_tokens: usage.outputTokens, cost_usd: usage.costUsd,
+        outcome: 'invalid_output', latency_ms: usage.latencyMs, plan_code: reservation.plan_code });
+      await svc.rpc('worker_settle_usage', { p_reservation_id: reservation.id });
+      await svc.from('scan_jobs').update({ state: 'rejected', error_code: 'off_topic_draft', actual_cost_usd: usage.costUsd, completed_at: new Date().toISOString() })
+        .eq('id', job.id as string);
+      await recordAbuseSignal(userId);
+      throw unprocessable('off_topic_draft', 'AI drafts are only for describing a problem with this product. Edit the issue description and try again.');
+    }
     await svc.from('usage_events').insert({ user_id: userId, scan_job_id: job.id, feature: 'claim_draft', provider: usage.provider, model: usage.model,
       prompt_version: CLAIM_DRAFT_PROMPT_VERSION, input_tokens: usage.inputTokens, output_tokens: usage.outputTokens, cost_usd: usage.costUsd,
-      outcome: 'success', latency_ms: usage.latencyMs });
+      outcome: 'success', latency_ms: usage.latencyMs, plan_code: reservation.plan_code });
     await svc.rpc('worker_settle_usage', { p_reservation_id: reservation.id });
     await svc.from('scan_jobs').update({ state: 'succeeded', actual_cost_usd: usage.costUsd, input_tokens: usage.inputTokens,
       output_tokens: usage.outputTokens, completed_at: new Date().toISOString() }).eq('id', job.id as string);
@@ -239,11 +278,23 @@ export async function aiDraft(db: Db, userId: string, claimId: string, idempoten
       .eq('id', claimId).eq('user_id', userId);
     return { draft: text, label: 'AI-assisted draft — check every statement before sending.', reused: false };
   } catch (err) {
+    if (err instanceof AppError) throw err;
     const code = err instanceof AiProviderError ? err.code : 'provider_error';
     await svc.rpc('worker_release_usage', { p_reservation_id: reservation.id, p_reason: code });
     await svc.from('scan_jobs').update({ state: 'failed', error_code: code, completed_at: new Date().toISOString() }).eq('id', job.id as string);
     throw new AppError(503, 'ai_draft_failed', 'The AI draft could not be generated. Your allowance was not used; the factual template is still available.');
   }
+}
+
+/** A claim draft must look like a short claim letter, not arbitrary generated content. */
+export function isClaimLetter(text: string): boolean {
+  const t = text.trim();
+  if (!t || /^OFF_TOPIC\b/.test(t)) return false;
+  if (!/^Subject:/i.test(t)) return false;
+  const words = t.split(/\s+/).length;
+  if (words > 400) return false;
+  if (/```|<script|<\/?html|def |function\s*\(|SELECT\s+.+\s+FROM/i.test(t)) return false;
+  return true;
 }
 
 export async function signedPackUrl(db: Db, packId: string) {

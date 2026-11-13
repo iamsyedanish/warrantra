@@ -54,7 +54,17 @@ export const MeController = {
       a.db.rpc('get_my_entitlement'),
       a.db.rpc('get_my_usage'),
     ]);
-    res.json(one({ profile, entitlement: entitlementView(check(entitlement) as Record<string, unknown>), usage: check(usage) }));
+    // Travel/timezone: if the device reports a different zone than the profile, let the app ask
+    // whether to switch (reminders reschedule automatically when the profile timezone changes).
+    const devices = (check(await a.db.from('devices').select('timezone, last_seen_at').eq('token_state', 'active')
+      .order('last_seen_at', { ascending: false }).limit(1)) ?? []) as Array<{ timezone: string | null }>;
+    const deviceTz = devices[0]?.timezone ?? null;
+    const timezoneHint = deviceTz && deviceTz !== profile.timezone
+      ? { device_timezone: deviceTz, profile_timezone: profile.timezone,
+          message: `Your phone is set to ${deviceTz}. Use it for reminder times?` }
+      : null;
+    res.json(one({ profile, entitlement: entitlementView(check(entitlement) as Record<string, unknown>), usage: check(usage),
+                   timezone_hint: timezoneHint }));
   },
   update: async (req: Request, res: Response) => {
     const a = authOf(req);
@@ -79,6 +89,10 @@ export const MeController = {
   },
   usage: async (req: Request, res: Response) => {
     res.json(one(check(await authOf(req).db.rpc('get_my_usage'))));
+  },
+  /** Paywall offer for the running price experiment (sticky per user). */
+  offer: async (req: Request, res: Response) => {
+    res.json(one(check(await authOf(req).db.rpc('get_price_offer'))));
   },
   annualSummary: async (req: Request, res: Response) => {
     const year = Number(req.query.year ?? new Date().getUTCFullYear());

@@ -5,7 +5,7 @@
  */
 import { z } from 'zod/v4';
 
-export const SCHEMA_VERSION = 'receipt-v1';
+export const SCHEMA_VERSION = 'receipt-v2';
 
 const Field = z.object({
   value: z.string().nullable().describe('The value exactly as supported by the document, or null if not present.'),
@@ -27,6 +27,8 @@ const Mention = z.object({
 });
 
 export const ReceiptExtraction = z.object({
+  document_type: z.enum(['receipt', 'invoice', 'order_confirmation', 'other'])
+    .describe('What the document is. Use "other" for anything that is not a purchase receipt, invoice or order confirmation.'),
   merchant: Field,
   purchase_date: Field.describe('value must be YYYY-MM-DD only when unambiguous; otherwise null with raw text in evidence.'),
   delivery_date: Field,
@@ -44,8 +46,17 @@ export const ReceiptExtraction = z.object({
 });
 export type ReceiptExtraction = z.infer<typeof ReceiptExtraction>;
 
+export const CATEGORY_SLUGS = ['electronics', 'appliances', 'computers', 'phones_tablets', 'gaming', 'audio', 'cameras',
+  'furniture', 'tools', 'automotive', 'home', 'kitchen', 'wearables', 'other'] as const;
+
 export const ProductLabelExtraction = z.object({
+  document_type: z.enum(['product_label', 'product_photo', 'other'])
+    .describe('Use "other" if the input is not a product, its packaging or its rating/model label.'),
   product_name: Field,
+  category: z.object({
+    value: z.enum(CATEGORY_SLUGS).nullable().describe('Best matching category for the product, or null if unclear.'),
+    evidence: z.string().nullable(),
+  }),
   brand: Field,
   model_number: Field,
   serial_number: Field,

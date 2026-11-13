@@ -99,6 +99,18 @@ export async function extractStructured<S extends z.ZodType>(opts: {
   }
 }
 
+/** Free moderation check on user-written text sent to the model (claim drafts). */
+export async function moderate(text: string): Promise<{ flagged: boolean; categories: string[] }> {
+  try {
+    const res = await openai().moderations.create({ model: 'omni-moderation-latest', input: text.slice(0, 10_000) });
+    const r = res.results[0];
+    if (!r) return { flagged: false, categories: [] };
+    return { flagged: r.flagged, categories: Object.entries(r.categories).filter(([, v]) => v).map(([k]) => k) };
+  } catch (err) {
+    throw mapError(err);
+  }
+}
+
 export async function generateText(opts: { system: string; prompt: string; maxTokens: number }): Promise<{ text: string; usage: AiUsage }> {
   const model = env().AI_MODEL;
   const started = Date.now();

@@ -14,6 +14,12 @@
 | `email_ingest_daily_limit` | Forwarded-email quota per address |
 | `billing_environment` | Which RevenueCat environment grants access (keep `PRODUCTION`) |
 
+## AI abuse
+- Suspended accounts: `GET /v1/admin/ai/suspensions`; a user's signals: `GET /v1/admin/users/:id/ai-abuse-signals`.
+- Lift or impose a suspension (audited): `POST /v1/admin/users/:id/ai-suspension` `{action: "lift"|"suspend", days, reason}`.
+- Free-tier spend spike: lower `ai_free_tier_daily_budget_usd`; paid users are unaffected.
+- Tune sensitivity with `ai_abuse_signal_threshold_24h` and `ai_suspension_days`.
+
 ## Incidents
 - **Push provider outage:** reminders retry with backoff (up to 5 attempts) and the Action Center still shows due items. Watch `failed_deliveries_24h`. Never report provider acceptance as delivery.
 - **Billing webhook backlog or replays:** events are immutable and unique, so replays are harmless. `billing_reconcile` runs hourly and re-queues failed events. For a single user: `POST /v1/admin/users/:id/reconcile-entitlements`.

@@ -13,7 +13,7 @@ import * as backup from '../services/backup.service.js';
 import * as billing from '../services/billing/billing.service.js';
 import { audit, enqueueJob } from '../services/ops.service.js';
 import { computeProfit, PLANNING_CASE } from '../services/profitability/calculator.js';
-import { computeSnapshot } from '../services/profitability/profitability.service.js';
+import { cohortForecast, computeSnapshot, launchGates } from '../services/profitability/profitability.service.js';
 import { list, one } from '../views/index.js';
 import { Uuid } from '../validators/index.js';
 
@@ -266,6 +266,74 @@ export const AdminController = {
     res.json(one({ inputs: { ...PLANNING_CASE, ...overrides, monthlyPrice: monthly, platformFee: b.platform_fee },
       result: computeProfit({ ...PLANNING_CASE, ...overrides, monthlyPrice: monthly, platformFee: b.platform_fee ?? 0.15 }),
       caveat: 'Hypothesis only. Replace assumptions with measured cohort data; this is not a guarantee of profit.' }));
+  },
+
+  forecast: async (_req: Request, res: Response) => res.json(one(await cohortForecast())),
+  launchGates: async (_req: Request, res: Response) => res.json(one(await launchGates())),
+
+  // ---- AI abuse controls ----
+  aiSuspensions: async (_req: Request, res: Response) => {
+    const rows = check(await svc().from('profiles').select('id, ai_suspended_until, ai_suspension_reason')
+      .gt('ai_suspended_until', new Date().toISOString()).order('ai_suspended_until', { ascending: false }).limit(200));
+    res.json(list(rows as unknown[]));
+  },
+  aiAbuseSignals: async (req: Request, res: Response) => {
+    const rows = check(await svc().from('scan_jobs').select('id, feature, state, error_code, created_at')
+      .eq('user_id', id(req)).in('error_code', ['not_a_receipt', 'not_a_product_label', 'refused', 'moderation_flagged', 'off_topic_draft'])
+      .order('created_at', { ascending: false }).limit(100));
+    res.json(list(rows as unknown[]));
+  },
+  setAiSuspension: async (req: Request, res: Response) => {
+    const b = parseOrThrow(z.strictObject({ action: z.enum(['suspend', 'lift']), days: z.number().int().min(1).max(365).optional(),
+      reason: z.string().min(3).max(200) }), req.body, 'body');
+    const patch = b.action === 'lift'
+      ? { ai_suspended_until: null, ai_suspension_reason: null }
+      : { ai_suspended_until: new Date(Date.now() + (b.days ?? 7) * 86_400_000).toISOString(), ai_suspension_reason: `admin: ${b.reason}` };
+    const row = check(await svc().from('profiles').update(patch).eq('id', id(req)).select('id, ai_suspended_until, ai_suspension_reason').maybeSingle());
+    if (!row) throw notFound('user_not_found');
+    await act(req, `admin.ai_${b.action}`, 'user', id(req), { reason: b.reason, days: b.days });
+    res.json(one(row));
+  },
+
+  // ---- price experiments (spec §8/§10) ----
+  experiments: async (_req: Request, res: Response) =>
+    res.json(list(check(await svc().from('price_experiments').select('*').order('created_at', { ascending: false })) as unknown[])),
+  upsertExperiment: async (req: Request, res: Response) => {
+    if (!hasRank(req.admin!.role, 'finance')) throw forbidden('admin_role_insufficient');
+    const Variant = z.strictObject({
+      code: z.string().regex(/^[A-Z0-9]{1,8}$/), label: z.string().min(1).max(80),
+      annual_price_usd: z.number().positive().max(10_000).nullable(), monthly_price_usd: z.number().positive().max(1_000).nullable(),
+      revenuecat_offering: z.string().min(1).max(80), weight: z.number().int().min(0).max(100),
+    });
+    const b = parseOrThrow(z.strictObject({ id: Uuid.optional(), key: z.string().regex(/^[a-z0-9_-]{3,40}$/),
+      variants: z.array(Variant).min(1).max(6), notes: z.string().max(1000).optional() }), req.body, 'body');
+    if (new Set(b.variants.map((v) => v.code)).size !== b.variants.length) throw forbidden('duplicate_variant_codes');
+    if (b.id) {
+      const cur = check(await svc().from('price_experiments').select('status').eq('id', b.id).maybeSingle()) as { status: string } | null;
+      if (!cur) throw notFound('experiment_not_found');
+      // Changing variants mid-test would invalidate the comparison.
+      if (cur.status !== 'draft') throw forbidden('experiment_not_editable', 'Only draft experiments can be edited; create a new one instead.');
+    }
+    const row = check(await svc().from('price_experiments').upsert({ ...b, status: 'draft' }).select('*').single());
+    await act(req, 'admin.experiment_saved', 'price_experiment', String((row as { id: string }).id));
+    res.status(201).json(one(row));
+  },
+  setExperimentStatus: async (req: Request, res: Response) => {
+    if (!hasRank(req.admin!.role, 'finance')) throw forbidden('admin_role_insufficient');
+    const status = parseOrThrow(z.strictObject({ status: z.enum(['running', 'stopped']) }), req.body, 'body').status;
+    const s = svc();
+    if (status === 'running') {
+      const running = check(await s.from('price_experiments').select('id').eq('status', 'running').neq('id', id(req)).maybeSingle());
+      if (running) throw forbidden('another_experiment_running', 'Stop the running experiment first.');
+    }
+    const patch = status === 'running' ? { status, started_at: new Date().toISOString() } : { status, stopped_at: new Date().toISOString() };
+    const row = check(await s.from('price_experiments').update(patch).eq('id', id(req)).select('*').maybeSingle());
+    if (!row) throw notFound('experiment_not_found');
+    await act(req, `admin.experiment_${status}`, 'price_experiment', id(req));
+    res.json(one(row));
+  },
+  experimentReport: async (req: Request, res: Response) => {
+    res.json(one(check(await svc().rpc('price_experiment_report', { p_experiment_id: id(req) }))));
   },
 
   // ---- backup & restore ----

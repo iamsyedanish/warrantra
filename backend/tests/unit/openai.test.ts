@@ -50,3 +50,14 @@ describe('OpenAI provider', () => {
     expect(() => assertComplete({ model: 'm', status: 'completed', output: [] }, u)).not.toThrow();
   });
 });
+
+describe('claim draft output guard', () => {
+  it('accepts claim letters and rejects off-topic or generated code', async () => {
+    const { isClaimLetter } = await import('../../src/services/claim.service.js');
+    expect(isClaimLetter('Subject: Warranty request — Dyson V15\n\nHello, my vacuum stops after two minutes...')).toBe(true);
+    expect(isClaimLetter('OFF_TOPIC')).toBe(false);
+    expect(isClaimLetter('Here is a poem about the sea')).toBe(false);
+    expect(isClaimLetter('Subject: x\n```python\nprint(1)\n```')).toBe(false);
+    expect(isClaimLetter('Subject: x ' + 'word '.repeat(500))).toBe(false);
+  });
+});

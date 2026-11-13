@@ -58,6 +58,7 @@ export function userRoutes(): Router {
   r.get('/me/entitlement', wrap(MeController.entitlement));
   r.get('/me/usage', wrap(MeController.usage));
   r.get('/me/annual-summary', wrap(MeController.annualSummary));
+  r.get('/me/offer', wrap(MeController.offer));
   r.post('/me/restore-purchases', wrap(MeController.restorePurchases));
   r.get('/me/devices', wrap(MeController.listDevices));
   r.put('/me/devices', wrap(MeController.registerDevice));
@@ -228,6 +229,15 @@ export function adminRoutes(): Router {
   r.get('/profitability/settings', requireAdmin('finance'), wrap(A.profitSettings));
   r.post('/profitability/settings', requireAdmin('finance'), wrap(A.newProfitSettings));
   r.post('/profitability/calculator', requireAdmin('finance'), wrap(A.calculator));
+  r.get('/profitability/forecast', requireAdmin('finance'), wrap(A.forecast));
+  r.get('/launch-gates', requireAdmin('finance', 'operator'), wrap(A.launchGates));
+  r.get('/ai/suspensions', requireAdmin('support', 'operator'), wrap(A.aiSuspensions));
+  r.get('/users/:id/ai-abuse-signals', requireAdmin('support', 'operator'), wrap(A.aiAbuseSignals));
+  r.post('/users/:id/ai-suspension', requireAdmin('operator'), wrap(A.setAiSuspension));
+  r.get('/price-experiments', requireAdmin('finance'), wrap(A.experiments));
+  r.post('/price-experiments', requireAdmin('finance'), wrap(A.upsertExperiment));
+  r.post('/price-experiments/:id/status', requireAdmin('finance'), wrap(A.setExperimentStatus));
+  r.get('/price-experiments/:id/report', requireAdmin('finance'), wrap(A.experimentReport));
   r.get('/backups', requireAdmin('operator'), wrap(A.backups));
   r.post('/backups/run', requireAdmin('operator'), wrap(A.runBackup));
   r.post('/backups/restore-drill', requireAdmin('operator'), wrap(A.runRestoreDrill));

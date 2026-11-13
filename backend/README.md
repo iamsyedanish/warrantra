@@ -94,6 +94,16 @@ npm run db:check       # apply every migration and assert RLS is enabled everywh
 npm run typecheck
 ```
 
+Live checks against the configured project (use dev/staging; each cleans up after itself;
+the AI ones cost a few cents and need the worker running):
+
+```bash
+npm run smoke:live   # core flows + cross-account isolation
+npm run smoke:ai     # GPT extraction: PDF, image, OCR text, product label, corrections
+npm run smoke:abuse  # AI abuse controls
+npm run e2e:live     # public, billing webhooks, household, attacker, admin, export, deletion
+```
+
 `tests/sql/release-blocking.test.ts` covers the spec's §11 release-blocking tests
 at the database level, using two (or more) authenticated users: cross-account
 isolation, quotas and idempotency, shared receipts and partial returns, unknown
@@ -122,7 +132,17 @@ run the same scenarios against a real `supabase db reset` stack as well.
 - **Admins:** insert rows into `admin_users` with the service role. The first
   superadmin must be added manually.
 
+## Deployment
+
+One Docker image runs both processes: the API (`node dist/server.js`, default) and the worker
+(`node dist/workers/run.js`). `render.yaml` is a ready blueprint (web service + background worker);
+any container host works the same way. Configure everything through environment variables; run
+`npm run db:migrate` from CI or your machine before deploying new code. CI (`.github/workflows/backend.yml`)
+runs typecheck, migrations, the OpenAPI drift check, all tests and the Docker build.
+
 ## Documents
+
+- `GET /v1/openapi.json` / [docs/openapi.json](docs/openapi.json) — generated OpenAPI 3.1 spec (`npm run openapi`), for generating the Flutter client
 
 - [docs/API.md](docs/API.md) — endpoint reference
 - [docs/SPEC_COVERAGE.md](docs/SPEC_COVERAGE.md) — every spec module mapped to code and tests, plus open items

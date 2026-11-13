@@ -32,7 +32,11 @@ const HANDLERS: Record<string, (p: Record<string, any>) => Promise<unknown>> = {
   billing_process: (p) => processBillingEvent(p.billing_event_id),
   billing_reconcile: (p) => reconcileUser(p.user_id),
   email_ingest: (p) => processInbound(p as never),
-  storage_backup: (p) => (p.purge_user_id ? purgeUserFromBackup(p.purge_user_id) : runStorageBackup()),
+  storage_backup: async (p) => {
+    // Nothing can have been backed up when no backup target is configured.
+    if (!env().BACKUP_S3_BUCKET || !env().BACKUP_S3_ACCESS_KEY_ID) return { skipped: 'backup_not_configured' };
+    return p.purge_user_id ? purgeUserFromBackup(p.purge_user_id) : runStorageBackup();
+  },
   profitability_snapshot: (p) => computeSnapshot(p.month),
   monthly_digest: () => queueMonthlyDigests(),
   retention_purge: () => retentionPurge(),

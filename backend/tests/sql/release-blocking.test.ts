@@ -663,3 +663,115 @@ describe('12. audit gap fixes', () => {
     await expectError(asUser(db, u, (tx) => tx.query(`select * from public.worker_abandoned_uploads()`)), /permission denied/);
   });
 });
+
+describe('13. price experiment, alerts, backup retention', () => {
+  it('assigns a sticky variant only while an experiment runs; clients cannot pick their own', async () => {
+    const u = await createUser(db, 'offer@example.com');
+    let r = await asUser(db, u, (tx) => tx.query<{ o: any }>(`select public.get_price_offer() as o`));
+    expect(r.rows[0]!.o.variant).toBeNull();
+    await db.query(`update public.price_experiments set status = 'running', started_at = now() where key = 'pro_price_v1'`);
+    const first = (await asUser(db, u, (tx) => tx.query<{ o: any }>(`select public.get_price_offer() as o`))).rows[0]!.o;
+    expect(['A', 'B']).toContain(first.variant.code);
+    expect(first.variant.weight).toBeUndefined();
+    for (let i = 0; i < 3; i++) {
+      r = await asUser(db, u, (tx) => tx.query<{ o: any }>(`select public.get_price_offer() as o`));
+      expect(r.rows[0]!.o.variant.code).toBe(first.variant.code);
+    }
+    await expectError(asUser(db, u, (tx) => tx.query(`update public.experiment_assignments set variant_code = 'B'`)), /permission denied/);
+    // Variant split is roughly even across many users (deterministic hash).
+    const codes: Record<string, number> = {};
+    for (let i = 0; i < 40; i++) {
+      const x = await createUser(db, `split${i}@example.com`);
+      const o = (await asUser(db, x, (tx) => tx.query<{ o: any }>(`select public.get_price_offer() as o`))).rows[0]!.o;
+      codes[o.variant.code] = (codes[o.variant.code] ?? 0) + 1;
+    }
+    expect(codes.A).toBeGreaterThan(8);
+    expect(codes.B).toBeGreaterThan(8);
+    const rep = await asService(db, (tx) => tx.query<{ r: any }>(
+      `select public.price_experiment_report((select id from public.price_experiments where key = 'pro_price_v1')) as r`));
+    expect(rep.rows[0]!.r.by_variant.reduce((a: number, v: any) => a + v.assigned, 0)).toBe(41);
+    await db.query(`update public.price_experiments set status = 'stopped' where key = 'pro_price_v1'`);
+  });
+
+  it('accepts the new alert types', async () => {
+    await asService(db, (tx) => tx.query(`insert into public.margin_alerts (month, alert_type, severity, message)
+      values ('2026-11-01', 'acquisition_cap_exceeded', 'critical', 'x'), ('2026-11-01', 'cohort_forecast_below_target', 'warning', 'y')`));
+  });
+
+  it('backup copies are purged only after retention counted from deletion', async () => {
+    await asService(db, async (tx) => {
+      await tx.query(`insert into public.backup_objects (bucket, storage_path, backup_key, backed_up_at)
+                      values ('warranty-files', 'gone/a.pdf', 'k1', now() - interval '400 days')`);
+      expect((await tx.query<{ n: number }>(`select public.worker_mark_missing_backup_sources() as n`)).rows[0]!.n).toBeGreaterThan(0);
+      // Just went missing: not purgeable yet even though it was backed up long ago.
+      let e = await tx.query(`select * from public.worker_expired_backup_objects(35)`);
+      expect(e.rows).toHaveLength(0);
+      await tx.query(`update public.backup_objects set source_missing_since = now() - interval '36 days' where backup_key = 'k1'`);
+      e = await tx.query(`select * from public.worker_expired_backup_objects(35)`);
+      expect(e.rows).toHaveLength(1);
+    });
+  });
+});
+
+describe('14. AI abuse controls', () => {
+  const reserve = (u: string, key: string) => asUser(db, u, (tx) => tx.query(`select public.reserve_ai_action($1, 'scan_job', null)`, [key]));
+  const consent = (u: string) => db.query(`update public.profiles set ai_processing_consent_at = now() where id = $1`, [u]);
+
+  it('requires a verified email', async () => {
+    const u = await createUser(db, 'unverified@example.com');
+    await consent(u);
+    await db.query(`update auth.users set email_confirmed_at = null where id = $1`, [u]);
+    await expectError(reserve(u, 'unv-000001'), /ai_email_verification_required/);
+    await db.query(`update auth.users set email_confirmed_at = now() where id = $1`, [u]);
+    await reserve(u, 'unv-000001');
+  });
+
+  it('honours suspensions, which users cannot clear themselves', async () => {
+    const u = await createUser(db, 'suspended@example.com');
+    await consent(u);
+    await db.query(`update public.profiles set ai_suspended_until = now() + interval '1 day', ai_suspension_reason = 'test' where id = $1`, [u]);
+    await expectError(reserve(u, 'sus-000001'), /ai_suspended/);
+    await expectError(asUser(db, u, (tx) => tx.query(`update public.profiles set ai_suspended_until = null where id = $1`, [u])), /permission denied/);
+  });
+
+  it('caps total free-tier spend per day without affecting paid users', async () => {
+    const free = await createUser(db, 'freecap@example.com');
+    const pro = await createUser(db, 'procap@example.com');
+    await consent(free);
+    await consent(pro);
+    await asService(db, (tx) => tx.query(`insert into public.entitlements (user_id, entitlement_key, environment, state, valid_until, store)
+      values ($1, 'pro', 'PRODUCTION', 'active', now() + interval '1 year', 'app_store')`, [pro]));
+    await asService(db, (tx) => tx.query(`insert into public.usage_events (user_id, feature, provider, model, prompt_version, cost_usd, outcome, plan_code)
+      values (null, 'receipt_extraction', 'openai', 'm', 'v', 5.00, 'success', 'free')`));
+    await expectError(reserve(free, 'cap-000001'), /ai_free_tier_busy/);
+    await reserve(pro, 'cap-000002');
+    await asService(db, (tx) => tx.query(`delete from public.usage_events where plan_code = 'free' and cost_usd = 5.00`));
+  });
+
+  it('rate-limits reservations per hour, even when earlier ones were released', async () => {
+    const u = await createUser(db, 'ratelimit@example.com');
+    await consent(u);
+    await asService(db, (tx) => tx.query(`insert into public.entitlements (user_id, entitlement_key, environment, state, valid_until, store)
+      values ($1, 'pro', 'PRODUCTION', 'active', now() + interval '1 year', 'app_store')`, [u]));
+    for (let i = 0; i < 10; i++) {
+      const r = await asUser(db, u, (tx) => tx.query<{ id: string }>(`select id from public.reserve_ai_action($1, 'scan_job', null)`, [`rl-key-${i}0000`]));
+      await asService(db, (tx) => tx.query(`select public.worker_release_usage($1, 'test')`, [r.rows[0]!.id]));
+    }
+    await expectError(reserve(u, 'rl-key-final'), /ai_rate_limited/);
+  });
+
+  it('auto-suspends AI after repeated abuse signals and audits it', async () => {
+    const u = await createUser(db, 'abuser@example.com');
+    await consent(u);
+    for (let i = 0; i < 5; i++) {
+      await asService(db, (tx) => tx.query(`insert into public.scan_jobs (user_id, idempotency_key, feature, input_kind, state, error_code)
+        values ($1, $2, 'receipt_extraction', 'ocr_text', 'rejected', 'not_a_receipt')`, [u, `abuse-key-${i}000`]));
+    }
+    const r = await asService(db, (tx) => tx.query<{ r: any }>(`select public.worker_ai_abuse_check($1) as r`, [u]));
+    expect(r.rows[0]!.r.suspended).toBe(true);
+    await expectError(reserve(u, 'abuse-after-1'), /ai_suspended/);
+    const audit = await db.query<{ n: number }>(`select count(*)::int n from public.audit_events where action = 'ai.suspended' and target_id = $1`, [u]);
+    expect(audit.rows[0]!.n).toBe(1);
+    await expectError(asUser(db, u, (tx) => tx.query(`select public.worker_ai_abuse_check($1)`, [u])), /permission denied/);
+  });
+});

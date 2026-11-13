@@ -130,6 +130,7 @@ export function validateReceiptCandidate(c: ReceiptExtraction, opts: { locale: '
 
 export interface LabelReviewDraft {
   product_name: ReviewField<string>;
+  category: { value: string | null; status: 'suggested' | 'missing'; label: string };
   brand: ReviewField<string>;
   model_number: ReviewField<string>;
   serial_number: ReviewField<string>;
@@ -150,6 +151,9 @@ export function validateLabelCandidate(c: ProductLabelExtraction): LabelReviewDr
   };
   return {
     product_name: textField(c.product_name, 200, warnings, 'product name'),
+    category: c.category?.value
+      ? { value: c.category.value, status: 'suggested', label: 'Suggested category — change it if it is wrong.' }
+      : { value: null, status: 'missing', label: 'Choose a category.' },
     brand: textField(c.brand, 120, warnings, 'brand'),
     model_number: code(c.model_number, 'model number'),
     serial_number: code(c.serial_number, 'serial number'),

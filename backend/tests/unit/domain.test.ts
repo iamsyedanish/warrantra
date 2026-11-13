@@ -301,3 +301,56 @@ describe('error logging keeps the cause but never leaks it to clients', () => {
     expect(JSON.stringify({ code: (e as any).code, message: e.message })).not.toMatch(/socket/);
   });
 });
+
+describe('server-measured correction rate', () => {
+  it('counts fields the user changed from the AI draft', async () => {
+    const { countCorrections } = await import('../../src/services/purchase.service.js');
+    const draft = {
+      merchant: { value: 'Best Buy' }, purchase_date: { value: '2026-11-02' }, delivery_date: { value: null }, order_number: { value: 'X1' },
+      currency: { value: 'USD' }, subtotal: { value: '489.99' }, tax: { value: '40.42' }, shipping: { value: null }, discount: { value: null },
+      total_paid: { value: '530.41' }, lines: [{ description: 'Headphones', line_amount: '399.99' }, { description: 'Charger', line_amount: '90.00' }],
+    };
+    const same = { retailer: 'best buy', purchase_date: '2026-11-02', order_number: 'X1', currency: 'USD' as const, subtotal: '489.99', tax: '40.42',
+      total_paid: '530.41', lines: [{ original_description: 'Headphones', line_amount: '399.99' }, { original_description: 'Charger', line_amount: '90.00' }] };
+    expect(countCorrections(draft, same)).toBe(0);
+    expect(countCorrections(draft, { ...same, tax: '40.24', lines: [same.lines[0]!] })).toBe(2);
+    expect(countCorrections(null, same)).toBe(0);
+  });
+});
+
+describe('first-year cohort forecast', () => {
+  it('projects after-tax profit per paid month from observed retention', async () => {
+    const { forecastFromCohorts } = await import('../../src/services/profitability/profitability.service.js');
+    const settings = { tax_rate: 0.2, target_after_tax_usd: 6, paid_variable_cost_floor: 0.45 };
+    const latest = { active_paying: 2000, fixed_cost_usd: 3300, free_subsidy_usd: 200, variable_paid_cost_usd: 900 };
+    // 100 payers, all retained after 3 months, $11.54 net per paid month, $15 CAC (spec planning case).
+    const good = { cohort_month: '2026-01-01', channel: 'organic', as_of_month: '2026-03-01', new_paying: 100, retained_30d: 100, retained_90d: 100,
+      cumulative_net_usd: 100 * 3 * 11.54, cac_usd: 15 };
+    const churny = { ...good, channel: 'paid_social', retained_30d: 60, retained_90d: 30, cumulative_net_usd: 100 * 1.6 * 11.54, cac_usd: 62.5 };
+    let alerted = 0;
+    const r = await forecastFromCohorts([good, churny], settings, latest, async (n) => { alerted = n; });
+    const [g, c] = r.forecasts;
+    expect(g!.expected_paid_months_year1).toBe(12);
+    expect(g!.projected_after_tax_per_paid_month_usd).toBeCloseTo(6.47, 1); // matches the spec table
+    expect(g!.meets_target).toBe(true);
+    expect(c!.meets_target).toBe(false);
+    expect(alerted).toBe(1);
+  });
+});
+
+describe('image preparation for AI', () => {
+  it('flattens transparency onto white, caps size and outputs JPEG', async () => {
+    const sharp = (await import('sharp')).default;
+    const { prepareImageForAi } = await import('../../src/services/scan.service.js');
+    // 3000x1000 fully transparent PNG with one opaque black pixel region.
+    const png = await sharp({ create: { width: 3000, height: 1000, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } })
+      .composite([{ input: { create: { width: 10, height: 10, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 1 } } }, left: 0, top: 0 }])
+      .png().toBuffer();
+    const out = await prepareImageForAi(png);
+    const meta = await sharp(out).metadata();
+    expect(meta.format).toBe('jpeg');
+    expect(Math.max(meta.width!, meta.height!)).toBe(2048);
+    const { data } = await sharp(out).extract({ left: 1000, top: 300, width: 1, height: 1 }).raw().toBuffer({ resolveWithObject: true });
+    expect(data[0]).toBeGreaterThan(240); // transparent area became white, not black
+  });
+});

@@ -19,7 +19,11 @@
     "db:seed": "tsx scripts/migrate.ts seed-only",
     "db:test-server": "tsx scripts/pg-test-server.ts",
     "smoke:live": "tsx scripts/smoke-live.ts",
-    "smoke:ai": "tsx scripts/smoke-ai.ts"
+    "smoke:ai": "tsx scripts/smoke-ai.ts",
+    "openapi": "tsx scripts/openapi.ts",
+    "docker:build": "docker build -t warrantra-backend .",
+    "smoke:abuse": "tsx scripts/smoke-abuse.ts",
+    "e2e:live": "tsx scripts/e2e-live.ts"
   },
   "type": "module",
   "dependencies": {
@@ -38,6 +42,7 @@
     "pdfkit": "^0.20.2",
     "pg": "^8.23.1",
     "pino": "^10.4.0",
+    "sharp": "^0.35.5",
     "zod": "^4.6.7"
   },
   "devDependencies": {

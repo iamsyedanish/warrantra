@@ -192,6 +192,11 @@ async function raiseAlerts(s: Record<string, any>, settings: Row) {
   if (budget && s.ai_cost_usd > Number(budget) * 0.8) {
     add('ai_budget_near_limit', 'warning', s.ai_cost_usd, Number(budget), 'AI spend has passed 80% of the monthly budget.');
   }
+  const cap = (await svc.from('system_settings').select('value').eq('key', 'acquisition_monthly_cap_usd').maybeSingle()).data?.value;
+  if (cap !== undefined && cap !== null && s.acquisition_spend_usd > Number(cap)) {
+    add('acquisition_cap_exceeded', 'critical', s.acquisition_spend_usd, Number(cap),
+      'Acquisition spend is above the experiment spending cap. Pause paid acquisition until cohorts show payback.');
+  }
   if (alerts.length) await svc.from('margin_alerts').upsert(alerts, { onConflict: 'month,alert_type' });
 }
 
@@ -244,4 +249,128 @@ export async function computeCohorts(asOf: Date) {
     }, { onConflict: 'month,alert_type' });
   }
   return rows.length;
+}
+
+/**
+ * First-year cohort forecast (spec §10 launch gate). For each acquisition cohort,
+ * project 12 paid months from its OBSERVED monthly retention and net receipts,
+ * then compare after-tax profit per paid account-month with the target after the
+ * full allocation (variable cost, CAC, fixed + founder + free subsidy).
+ * It is a projection from early data, not a result.
+ */
+export async function cohortForecast() {
+  const svc = serviceClient();
+  const settings = check(await svc.from('profit_model_settings').select('*').order('version', { ascending: false }).limit(1).single()) as Row;
+  const latest = check(await svc.from('profitability_snapshots').select('*').order('month', { ascending: false }).limit(1).maybeSingle()) as Row | null;
+  const rows = check(await svc.from('cohort_metrics').select('*').order('as_of_month', { ascending: false })) as Row[];
+  const latestByCohort = new Map<string, Row>();
+  for (const r of rows) {
+    const k = `${r.cohort_month}|${r.channel}`;
+    if (!latestByCohort.has(k)) latestByCohort.set(k, r);
+  }
+  return forecastFromCohorts([...latestByCohort.values()], settings, latest, async (failing, target) => {
+    await svc.from('margin_alerts').upsert({
+      month: new Date().toISOString().slice(0, 8) + '01', alert_type: 'cohort_forecast_below_target', severity: 'warning',
+      metric_value: failing, threshold: target,
+      message: `${failing} cohort(s) are projected below the $${target} after-tax target in year one.`,
+    }, { onConflict: 'month,alert_type' });
+  });
+}
+
+/** Pure projection (unit-tested). */
+export async function forecastFromCohorts(cohorts: Row[], settings: Row, latest: Row | null,
+                                          onFailing?: (failing: number, target: number) => Promise<void>) {
+  const t = Number(settings.tax_rate);
+  const target = Number(settings.target_after_tax_usd);
+  const N = Number(latest?.active_paying ?? 0);
+  const fixedPerPaid = N > 0 ? (Number(latest?.fixed_cost_usd ?? 0) + Number(latest?.free_subsidy_usd ?? 0)) / N : null;
+  const variablePerPaid = N > 0 ? Number(latest?.variable_paid_cost_usd ?? 0) / N : Number(settings.paid_variable_cost_floor);
+
+  const forecasts = cohorts.map((c) => {
+    const n = Number(c.new_paying);
+    const asOf = new Date(String(c.as_of_month));
+    const start = new Date(String(c.cohort_month));
+    const months = Math.max(1, (asOf.getUTCFullYear() - start.getUTCFullYear()) * 12 + asOf.getUTCMonth() - start.getUTCMonth() + 1);
+    const retainedNow = months >= 12 && c.retained_365d != null ? Number(c.retained_365d)
+      : months >= 3 && c.retained_90d != null ? Number(c.retained_90d) : Number(c.retained_30d ?? n);
+    const share = n > 0 ? Math.min(1, retainedNow / n) : 0;
+    // Geometric monthly retention implied by what has been observed so far.
+    const monthlyRetention = share <= 0 ? 0 : Math.pow(share, 1 / Math.max(1, Math.min(months, 12)));
+    const sumMonths = (k: number) => Array.from({ length: k }, (_, i) => Math.pow(monthlyRetention, i)).reduce((a, b) => a + b, 0);
+    const expectedPaidMonths = sumMonths(12);
+    const observedPaidMonths = sumMonths(Math.min(months, 12));
+    const netPerPaidMonth = n > 0 && observedPaidMonths > 0 ? Number(c.cumulative_net_usd) / n / observedPaidMonths : 0;
+    const cac = Number(c.cac_usd ?? 0);
+    const pretax = expectedPaidMonths > 0 ? netPerPaidMonth - variablePerPaid - cac / expectedPaidMonths - (fixedPerPaid ?? 0) : null;
+    const afterTax = pretax === null ? null : pretax - Math.max(pretax, 0) * t;
+    return {
+      cohort_month: c.cohort_month, channel: c.channel, new_paying: n, months_observed: months,
+      observed_retention_share: Math.round(share * 1000) / 1000,
+      implied_monthly_retention: Math.round(monthlyRetention * 1000) / 1000,
+      expected_paid_months_year1: Math.round(expectedPaidMonths * 100) / 100,
+      net_receipts_per_paid_month_usd: Math.round(netPerPaidMonth * 100) / 100,
+      cac_usd: cac,
+      projected_after_tax_per_paid_month_usd: afterTax === null ? null : Math.round(afterTax * 100) / 100,
+      meets_target: afterTax === null ? null : afterTax >= target,
+      confidence: n < 30 || months < 3 ? 'low (small or young cohort)' : 'moderate',
+    };
+  });
+  const failing = forecasts.filter((f) => f.meets_target === false && f.new_paying >= 10).length;
+  if (failing && onFailing) await onFailing(failing, target);
+  return {
+    target_after_tax_usd: target,
+    fixed_allocation_per_paid_usd: fixedPerPaid === null ? null : Math.round(fixedPerPaid * 100) / 100,
+    variable_cost_per_paid_usd: Math.round(variablePerPaid * 100) / 100,
+    forecasts,
+    caveat: 'Projection from observed retention and receipts so far; early cohorts are noisy. Not a guarantee of profit.',
+  };
+}
+
+/** Phase D launch gates (spec §10–§11), each with its evidence. null = not enough data yet. */
+export async function launchGates() {
+  const svc = serviceClient();
+  const month = new Date().toISOString().slice(0, 8) + '01';
+  const [snap, drill, health, alerts, forecast, cap, spend] = await Promise.all([
+    svc.from('profitability_snapshots').select('*').order('month', { ascending: false }).limit(1).maybeSingle(),
+    svc.from('restore_drills').select('passed, completed_at').eq('passed', true).order('completed_at', { ascending: false }).limit(1).maybeSingle(),
+    svc.rpc('reminder_health'),
+    svc.from('margin_alerts').select('alert_type, severity').is('acknowledged_at', null),
+    cohortForecast(),
+    svc.from('system_settings').select('value').eq('key', 'acquisition_monthly_cap_usd').maybeSingle(),
+    svc.from('acquisition_spend').select('amount_usd').eq('month', month),
+  ]);
+  const s = snap.data as Row | null;
+  const h = (health.data ?? {}) as Row;
+  const drillAt = (drill.data as Row | null)?.completed_at as string | undefined;
+  const drillFresh = Boolean(drillAt && Date.now() - new Date(drillAt).getTime() < 90 * 86_400_000);
+  const monthSpend = ((spend.data ?? []) as Row[]).reduce((a, r) => a + Number(r.amount_usd), 0);
+  const critical = ((alerts.data ?? []) as Row[]).filter((a) => a.severity === 'critical');
+  const mature = forecast.forecasts.filter((f) => f.new_paying >= 10);
+  const gate = (name: string, passed: boolean | null, evidence: unknown) => ({ name, passed, evidence });
+  const gates = [
+    gate('after_tax_profit_per_paid_month_meets_target', s && s.meets_target !== null ? Boolean(s.meets_target) : null,
+      s ? { month: s.month, after_tax_per_paid_usd: s.after_tax_per_paid_usd, target: s.target_after_tax_usd } : 'no snapshot yet'),
+    gate('cost_inputs_entered', s ? Number(s.fixed_cost_usd) > 0 : null, s ? { fixed_cost_usd: s.fixed_cost_usd } : 'no snapshot yet'),
+    gate('first_year_cohort_forecast_clears_target', mature.length ? mature.every((f) => f.meets_target === true) : null,
+      mature.length ? mature.map((f) => ({ cohort: f.cohort_month, channel: f.channel, projected: f.projected_after_tax_per_paid_month_usd }))
+        : 'no cohort with 10+ paying customers yet'),
+    gate('refund_rate_acceptable', s?.refund_rate == null ? null : Number(s.refund_rate) <= 0.08, { refund_rate: s?.refund_rate ?? null }),
+    gate('acquisition_spend_within_cap', cap.data ? monthSpend <= Number(cap.data.value) : null, { month_spend_usd: monthSpend, cap_usd: cap.data?.value ?? null }),
+    gate('restore_drill_passed_last_90_days', drillFresh, { last_passed_at: drillAt ?? null }),
+    gate('reminder_handoff_within_5_minutes_99pct', h.within_5_min_24h_pct == null ? null : Number(h.within_5_min_24h_pct) >= 99,
+      { within_5_min_24h_pct: h.within_5_min_24h_pct ?? null }),
+    gate('no_open_critical_alerts', critical.length === 0, { open_critical: critical.map((a) => a.alert_type) }),
+  ];
+  return {
+    ready: gates.every((g) => g.passed === true),
+    gates,
+    manual_gates: [
+      'Real-device notification tests (permission denial, stale tokens, reinstall, long inactivity)',
+      'Store disclosures: third-party AI data sharing and the account-deletion URL',
+      'Observed beta with at least ten uncoached receipt-capture sessions',
+      'Legal/privacy and security review',
+      'Incident runbook reviewed',
+    ],
+    note: 'Do not expand paid acquisition until cohorts recover acquisition cost with an operating buffer.',
+  };
 }

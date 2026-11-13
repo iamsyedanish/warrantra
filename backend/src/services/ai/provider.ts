@@ -34,6 +34,11 @@ export async function extractStructured<S extends z.ZodType>(opts: {
     : anthropic.extractStructured(opts);
 }
 
+/** Moderation of user-written input (OpenAI only; other providers rely on their own safety systems). */
+export async function moderate(text: string): Promise<{ flagged: boolean; categories: string[] }> {
+  return active() === 'openai' ? openai.moderate(text) : { flagged: false, categories: [] };
+}
+
 export async function generateText(opts: { system: string; prompt: string; maxTokens: number }): Promise<{ text: string; usage: AiUsage }> {
   return active() === 'openai' ? openai.generateText(opts) : anthropic.generateText(opts);
 }
