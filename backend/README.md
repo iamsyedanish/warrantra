@@ -140,6 +140,15 @@ any container host works the same way. Configure everything through environment 
 `npm run db:migrate` from CI or your machine before deploying new code. CI (`.github/workflows/backend.yml`)
 runs typecheck, migrations, the OpenAPI drift check, all tests and the Docker build.
 
+### Railway (current deployment)
+
+- Project `warrantra` on the Dermaglobe Railway account, environment `production`.
+- `warrantra-api` (PROCESS_TYPE=api, public: https://warrantra-api-production.up.railway.app) and
+  `warrantra-worker` (PROCESS_TYPE=worker), both built from `backend/Dockerfile`.
+- Copy variables from `.env` without printing them: `node scripts/railway-env.cjs <public-url>`.
+- Deploy the current code: `railway up --service warrantra-api --detach` and `railway up --service warrantra-worker --detach`.
+- Apply database migrations from your machine first: `npm run db:migrate`.
+
 ## Documents
 
 - `GET /v1/openapi.json` / [docs/openapi.json](docs/openapi.json) — generated OpenAPI 3.1 spec (`npm run openapi`), for generating the Flutter client
