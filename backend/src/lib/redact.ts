@@ -12,6 +12,8 @@ const SENSITIVE_KEYS = new Set([
 
 export function redactDeep(value: unknown, depth = 0): unknown {
   if (depth > 6 || value === null || value === undefined) return value;
+  // Errors are left intact for the logger's err serializer, which scrubs their message/cause.
+  if (value instanceof Error) return value;
   if (Array.isArray(value)) return value.slice(0, 50).map((v) => redactDeep(v, depth + 1));
   if (typeof value === 'object') {
     const out: Record<string, unknown> = {};

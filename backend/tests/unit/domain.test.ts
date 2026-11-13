@@ -281,3 +281,23 @@ describe('product label validation', () => {
     expect(d.serial_number.value).toBeNull();
   });
 });
+
+describe('error logging keeps the cause but never leaks it to clients', () => {
+  it('logs code/message of the upstream error, scrubbed', async () => {
+    const { fromDbError } = await import('../../src/lib/errors.js');
+    const pino = (await import('pino')).default;
+    const { redactDeep: rd } = await import('../../src/lib/redact.js');
+    const lines: string[] = [];
+    const { logger } = await import('../../src/lib/logger.js');
+    const serializers = (logger as any)[Symbol.for('pino.serializers')];
+    const test = pino({ serializers, formatters: { log: (o: Record<string, unknown>) => rd(o) as Record<string, unknown> } },
+      { write: (l: string) => lines.push(l) });
+    const e = fromDbError({ code: 'ECONNRESET', message: 'socket hang up https://x.supabase.co/rest/v1/rpc?apikey=eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.abcdefghijklmnop' });
+    test.error({ err: e }, 'x');
+    const out = JSON.parse(lines[0]!);
+    expect(out.err.cause.code).toBe('ECONNRESET');
+    expect(out.err.cause.message).toContain('socket hang up');
+    expect(lines[0]).not.toMatch(/supabase\.co|eyJ/);
+    expect(JSON.stringify({ code: (e as any).code, message: e.message })).not.toMatch(/socket/);
+  });
+});

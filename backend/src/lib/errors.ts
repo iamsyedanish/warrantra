@@ -80,8 +80,12 @@ export function fromDbError(err: DbErrorLike): AppError {
       return unauthorized();
     case 'P0002':
       return notFound();
-    default:
-      return new AppError(500, 'database_error', 'Unexpected database error');
+    default: {
+      // Keep the upstream code/message for logs only (never sent to clients).
+      const e = new AppError(500, 'database_error', 'Unexpected database error');
+      Object.defineProperty(e, 'cause', { value: { code: err.code ?? null, message: (err.message ?? '').slice(0, 300) }, enumerable: false });
+      return e;
+    }
   }
 }
 

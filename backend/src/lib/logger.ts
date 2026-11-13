@@ -30,10 +30,13 @@ export const logger = pino({
   },
   serializers: {
     err: (err: unknown) => {
-      const e = err as { name?: string; message?: string; code?: string; stack?: string };
+      const e = err as { name?: string; message?: string; code?: string; stack?: string; cause?: { code?: string | null; message?: string } };
       return {
         type: e?.name,
         code: e?.code,
+        cause: e?.cause && typeof e.cause === 'object'
+          ? { code: e.cause.code ?? undefined, message: typeof e.cause.message === 'string' ? scrub(e.cause.message) : undefined }
+          : undefined,
         // Messages from upstream libraries may echo input; scrub obvious secrets.
         message: typeof e?.message === 'string' ? scrub(e.message) : undefined,
         stack: process.env.NODE_ENV === 'production' ? undefined : e?.stack,
