@@ -28,16 +28,19 @@ const EnvSchema = z.object({
   HASH_PEPPER: z.string().min(32),
 
   // AI (third-party provider; keys never leave the server)
-  AI_PROVIDER: z.enum(['anthropic', 'disabled']).default('anthropic'),
+  AI_PROVIDER: z.enum(['openai', 'anthropic', 'disabled']).default('openai'),
+  OPENAI_API_KEY: z.string().optional(),
   ANTHROPIC_API_KEY: z.string().optional(),
-  AI_MODEL: z.string().default('claude-opus-5-5'),
-  AI_EFFORT: z.enum(['low', 'medium', 'high']).default('low'),
-  AI_MAX_OUTPUT_TOKENS: z.coerce.number().int().positive().default(4000),
-  AI_CLAIM_DRAFT_MAX_TOKENS: z.coerce.number().int().positive().default(1500),
+  AI_MODEL: z.string().default('gpt-5.4-mini'),
+  AI_EFFORT: z.enum(['minimal', 'low', 'medium', 'high']).default('low'),
+  AI_MAX_OUTPUT_TOKENS: z.coerce.number().int().positive().default(6000),
+  AI_CLAIM_DRAFT_MAX_TOKENS: z.coerce.number().int().positive().default(2000),
   AI_TIMEOUT_MS: z.coerce.number().int().positive().default(60_000),
-  // USD per million tokens, used for cost accounting (update when pricing changes).
-  AI_PRICE_INPUT_PER_MTOK: z.coerce.number().nonnegative().default(4),
-  AI_PRICE_OUTPUT_PER_MTOK: z.coerce.number().nonnegative().default(20),
+  // USD per million tokens for cost accounting and budgets. Defaults = gpt-5.4-mini list price
+  // (Nov 2026). Update them whenever AI_MODEL or the provider's pricing changes.
+  AI_PRICE_INPUT_PER_MTOK: z.coerce.number().nonnegative().default(0.75),
+  AI_PRICE_CACHED_INPUT_PER_MTOK: z.coerce.number().nonnegative().optional(),
+  AI_PRICE_OUTPUT_PER_MTOK: z.coerce.number().nonnegative().default(4.5),
   AI_SERVER_FALLBACKS: bool('true'),
   AI_PROMPT_VERSION: z.string().default('receipt-extract-v1'),
 
@@ -89,8 +92,9 @@ function load(): Env {
     throw new Error(`Invalid environment configuration:\n  ${issues}`);
   }
   const env = parsed.data;
-  if (env.AI_PROVIDER === 'anthropic' && !env.ANTHROPIC_API_KEY && env.NODE_ENV === 'production') {
-    throw new Error('ANTHROPIC_API_KEY is required when AI_PROVIDER=anthropic in production');
+  if (env.NODE_ENV === 'production') {
+    if (env.AI_PROVIDER === 'openai' && !env.OPENAI_API_KEY) throw new Error('OPENAI_API_KEY is required when AI_PROVIDER=openai in production');
+    if (env.AI_PROVIDER === 'anthropic' && !env.ANTHROPIC_API_KEY) throw new Error('ANTHROPIC_API_KEY is required when AI_PROVIDER=anthropic in production');
   }
   if (env.PUSH_PROVIDER === 'fcm' && (!env.FCM_PROJECT_ID || !env.FCM_SERVICE_ACCOUNT_JSON)) {
     throw new Error('FCM_PROJECT_ID and FCM_SERVICE_ACCOUNT_JSON are required when PUSH_PROVIDER=fcm');

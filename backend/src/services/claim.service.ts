@@ -222,7 +222,7 @@ export async function aiDraft(db: Db, userId: string, claimId: string, idempoten
   const job = check(await svc.from('scan_jobs').upsert({
     user_id: userId, idempotency_key: `claim-${idempotencyKey}`.slice(0, 128), feature: 'claim_draft', input_kind: 'claim',
     input_claim_id: claimId, state: 'processing', usage_reservation_id: reservation.id, quota_period: reservation.quota_period,
-    prompt_version: CLAIM_DRAFT_PROMPT_VERSION, provider: 'anthropic', model: env().AI_MODEL, attempts: 1, started_at: new Date().toISOString(),
+    prompt_version: CLAIM_DRAFT_PROMPT_VERSION, provider: env().AI_PROVIDER, model: env().AI_MODEL, attempts: 1, started_at: new Date().toISOString(),
   }, { onConflict: 'user_id,idempotency_key' }).select('*').single()) as Row;
 
   const prompt = `<facts>\n${JSON.stringify(facts).slice(0, 12_000)}\n</facts>\n<issue>\n${String(claim.issue_description).slice(0, 5000)}\n</issue>\n` +

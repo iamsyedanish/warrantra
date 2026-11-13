@@ -6,6 +6,7 @@ import { parseOrThrow } from '../lib/http.js';
 import { serviceClient } from '../lib/supabase.js';
 import { Profiles } from '../models/index.js';
 import * as auth from '../services/auth.service.js';
+import { providerName } from '../services/ai/provider.js';
 import * as billing from '../services/billing/billing.service.js';
 import * as deletion from '../services/deletion.service.js';
 import * as exporter from '../services/export.service.js';
@@ -69,8 +70,8 @@ export const MeController = {
     const b = parseOrThrow(V.AiConsentBody, req.body, 'body');
     res.json(one({
       ...(await auth.recordAiConsent(authOf(req).userId, b.granted, b.consent_version)),
-      disclosure: 'When you use AI extraction, the selected receipt image/PDF or text is sent to our AI provider (Anthropic) to read it. ' +
-        'It is not used to make decisions about you. Manual entry never shares data with an AI provider.',
+      disclosure: `When you use AI extraction, the selected receipt image/PDF or text is sent to our AI provider (${providerName()}) to read it. ` +
+        'It is not used to make decisions about you, and the provider is asked not to store it. Manual entry never shares data with an AI provider.',
     }));
   },
   entitlement: async (req: Request, res: Response) => {

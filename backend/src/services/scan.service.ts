@@ -65,7 +65,7 @@ export async function startScan(db: Db, userId: string, idempotencyKey: string, 
       .then((r) => r.data?.value ?? 2)),
     prompt_version: body.feature === 'receipt_extraction' ? RECEIPT_PROMPT_VERSION : LABEL_PROMPT_VERSION,
     schema_version: SCHEMA_VERSION,
-    provider: 'anthropic',
+    provider: env().AI_PROVIDER,
     model: env().AI_MODEL,
   }).select('*').single()) as Row;
 
@@ -152,6 +152,7 @@ export async function processScanJob(payload: { scan_job_id: string; ocr_text: s
       input,
       instruction: isReceipt ? 'Extract the purchase facts from this document.' : 'Read the product label in this image.',
       schema: isReceipt ? ReceiptExtraction : ProductLabelExtraction,
+      schemaName: isReceipt ? 'receipt_extraction' : 'product_label_extraction',
     });
     await recordUsage(job, usage, 'success');
 

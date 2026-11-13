@@ -18,7 +18,8 @@
     "db:status": "tsx scripts/migrate.ts status",
     "db:seed": "tsx scripts/migrate.ts seed-only",
     "db:test-server": "tsx scripts/pg-test-server.ts",
-    "smoke:live": "tsx scripts/smoke-live.ts"
+    "smoke:live": "tsx scripts/smoke-live.ts",
+    "smoke:ai": "tsx scripts/smoke-ai.ts"
   },
   "type": "module",
   "dependencies": {
@@ -32,6 +33,7 @@
     "file-type": "^22.3.0",
     "google-auth-library": "^11.3.3",
     "helmet": "^8.3.0",
+    "openai": "^7.56.0",
     "pdf-lib": "^1.17.1",
     "pdfkit": "^0.20.2",
     "pg": "^8.23.1",

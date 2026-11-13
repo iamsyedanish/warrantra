@@ -64,10 +64,10 @@ uniqueness, no `required` boolean on registrations).
 
 ## What is not yet verified (be explicit)
 
-- **No live services yet.** Nothing has run against a live Supabase project, RevenueCat, FCM/APNs, Postmark, Resend, Anthropic or S3. The database tests use PGlite plus a shim of `auth`/`storage`. Run `supabase db reset` and repeat the SQL suite on the real stack.
+- **Partly live.** Supabase (migrations, Auth, PostgREST/RLS, Storage) and OpenAI are verified live. RevenueCat, FCM/APNs, Postmark, Resend and S3 are not yet. The database tests use PGlite plus a shim of `auth`/`storage`. Run `supabase db reset` and repeat the SQL suite on the real stack.
 - **Identity-merge trigger.** `guard_identity_linking` sits on `auth.identities`. Supabase manages that schema, so confirm on your project that the trigger is permitted and that Auth surfaces the error as expected.
 - **True concurrency.** The advisory-lock quota checks were exercised sequentially; parallel uploads and scans need a real multi-connection test.
-- **AI cost.** The default model is `claude-opus-5-5` with `effort: low`. That may exceed the spec's $0.02/action assumption. Measure it, and choose a cheaper model through `AI_MODEL` plus the price env vars if needed (your decision). No accuracy claim is made.
+- **AI provider and cost.** The default is OpenAI `gpt-5.4-mini` (`AI_PROVIDER=openai`, `store: false`); Anthropic remains selectable. A live test measured about $0.003 per receipt action (two receipts, PDF and OCR text), well under the spec's $0.02 assumption, and the model ignored an injected instruction. The image (JPEG/PNG) path and accuracy on real-world receipts are not yet measured; no accuracy claim is made.
 - **Monthly price and fee mix.** These are unvalidated; profitability output is only as good as the costs entered.
 - **Rate limits.** `express-rate-limit` uses in-memory storage; use a shared store for multiple API instances.
 - **Legal/privacy review, store disclosures, real-device notification tests and a security review** are still required (§12).

@@ -9,6 +9,8 @@ to Supabase Auth. It never holds the service-role key, AI keys or billing secret
 > Supabase shim) plus unit/HTTP tests. It has **not** yet been run against a live
 > Supabase project, RevenueCat, FCM, Postmark or an S3 bucket. See
 > [docs/SPEC_COVERAGE.md](docs/SPEC_COVERAGE.md) → "What is not yet verified".
+>
+> Live checks: `npm run smoke:live` (core API, isolation) and `npm run smoke:ai` (GPT extraction through the worker).
 
 ## Architecture
 
@@ -16,7 +18,7 @@ to Supabase Auth. It never holds the service-role key, AI keys or billing secret
 Flutter app ──HTTPS──► Express API (/v1) ──► Supabase Postgres (RLS + RPCs)
                           │                 ├► Supabase Storage (private buckets, signed URLs)
                           │                 └► Supabase Auth (JWT verification)
-                          ├► Anthropic (receipt extraction / claim drafts, server-side only)
+                          ├► OpenAI GPT (receipt extraction / claim drafts, server-side only; Anthropic optional)
 RevenueCat ──webhook────► │
 Postmark   ──webhook────► │
                      Worker process ──► jobs queue (FOR UPDATE SKIP LOCKED)
