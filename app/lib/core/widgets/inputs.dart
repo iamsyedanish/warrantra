@@ -59,7 +59,7 @@ class WField extends StatelessWidget {
             keyboardType: keyboardType,
             obscureText: obscure,
             maxLines: obscure ? 1 : maxLines,
-            minLines: maxLines > 1 ? 3 : 1,
+            minLines: maxLines > 1 ? (maxLines < 3 ? maxLines : 3) : 1,
             onChanged: onChanged,
             readOnly: readOnly,
             onTap: onTap,
@@ -204,9 +204,12 @@ class _Pill extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  text,
-                  style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w500, color: selected ? c.accentSoftText : c.text),
+                Flexible(
+                  child: Text(
+                    text,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w500, color: selected ? c.accentSoftText : c.text),
+                  ),
                 ),
               ],
             ),

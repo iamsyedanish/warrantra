@@ -38,9 +38,12 @@ class WTag extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             if (icon != null) ...[Icon(icon, size: 12, color: fg), const SizedBox(width: 4)],
-            Text(
-              label,
-              style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w500, color: fg),
+            Flexible(
+              child: Text(
+                label,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w500, color: fg),
+              ),
             ),
           ],
         ),
@@ -274,7 +277,7 @@ class WKeyValue extends StatelessWidget {
               ],
             ),
           ),
-          if (trailing != null) trailing!,
+          if (trailing != null) Flexible(child: trailing!),
         ],
       ),
     );

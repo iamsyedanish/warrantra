@@ -37,7 +37,7 @@ class SplashScreen extends StatelessWidget {
           Row(children: [
             SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: c.accent)),
             const SizedBox(width: 10),
-            Text('Restoring your session', style: TextStyle(fontSize: 13, color: c.textSubtle)),
+            Flexible(child: Text('Restoring your session', style: TextStyle(fontSize: 13, color: c.textSubtle))),
           ]),
         ]),
       ),
@@ -242,10 +242,10 @@ class _SignInState extends ConsumerState<SignInScreen> {
                   showToast(context, 'Enter your email and password.');
                   return;
                 }
-                _run('email', () => repo.signIn(email: _email.text, password: _password.text));
+                _run('email', () => repo.signIn(email: _email.text.trim(), password: _password.text));
               }),
         const SizedBox(height: 14),
-        Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+        Wrap(alignment: WrapAlignment.center, crossAxisAlignment: WrapCrossAlignment.center, children: [
           Text('New to Warrantra?', style: TextStyle(color: c.textMuted)),
           WButton.ghost('Create account', onPressed: () => context.push('/signup')),
         ]),
@@ -274,13 +274,13 @@ class _SignUpState extends ConsumerState<SignUpScreen> {
   bool get _passwordOk => _password.text.length >= 10;
 
   Future<void> _submit() async {
-    if (!_email.text.contains('@') || !_passwordOk) {
+    if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(_email.text.trim()) || !_passwordOk) {
       showToast(context, 'Enter a valid email and a password of at least 10 characters.');
       return;
     }
     setState(() => _busy = true);
     try {
-      final r = await ref.read(authRepositoryProvider).signUp(email: _email.text, password: _password.text, displayName: _name.text.trim());
+      final r = await ref.read(authRepositoryProvider).signUp(email: _email.text.trim(), password: _password.text, displayName: _name.text.trim());
       if (r.signedIn) {
         ref.read(sessionProvider.notifier).markSignedIn();
       } else {
@@ -364,7 +364,7 @@ class _ForgotState extends ConsumerState<ForgotPasswordScreen> {
         if (!_email.text.contains('@')) return showToast(context, 'Enter your email address.');
         setState(() => _busy = true);
         try {
-          await ref.read(authRepositoryProvider).sendPasswordReset(_email.text);
+          await ref.read(authRepositoryProvider).sendPasswordReset(_email.text.trim());
         } on Failure catch (f) {
           if (f.isOffline && mounted) return showFailure(context, f);
         } finally {

@@ -119,7 +119,7 @@ class _CoverageSetupScreenState extends ConsumerState<CoverageSetupScreen> {
         Row(children: [
           Icon(PhosphorIconsRegular.stack, size: 16, color: c.textSubtle),
           const SizedBox(width: 6),
-          Text('Saved together: 1 purchase, ${widget.args.itemIds.length} item${widget.args.itemIds.length == 1 ? '' : 's'}', style: TextStyle(fontSize: 12.5, color: c.textSubtle)),
+          Expanded(child: Text('Saved together: 1 purchase, ${widget.args.itemIds.length} item${widget.args.itemIds.length == 1 ? '' : 's'}', style: TextStyle(fontSize: 12.5, color: c.textSubtle))),
         ]),
       ],
     );

@@ -160,7 +160,7 @@ class _ReturnTrackState extends ConsumerState<_ReturnTrack> {
                   Icon(i <= idx ? PhosphorIconsFill.checkCircle : i == idx + 1 ? PhosphorIconsRegular.circleDashed : PhosphorIconsRegular.circle,
                       color: i <= idx ? c.accent : c.textSubtle, size: 20),
                   const SizedBox(width: 12),
-                  Text(label, style: TextStyle(color: i <= idx ? c.text : c.textMuted)),
+                  Expanded(child: Text(label, style: TextStyle(color: i <= idx ? c.text : c.textMuted))),
                 ]),
               ),
           ]),

@@ -32,12 +32,16 @@ class _AppShellState extends ConsumerState<AppShell> {
         child: InkWell(
           onTap: () => widget.shell.goBranch(index, initialLocation: index == i),
           child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: Column(mainAxisSize: MainAxisSize.min, children: [
-              Icon(on ? active : icon, color: on ? c.accent : c.textSubtle, size: 24),
-              const SizedBox(height: 3),
-              Text(label, style: TextStyle(fontSize: 11, color: on ? c.accent : c.textSubtle, fontWeight: on ? FontWeight.w600 : FontWeight.w400)),
-            ]),
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            // Scales down instead of overflowing with very large text settings.
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                Icon(on ? active : icon, color: on ? c.accent : c.textSubtle, size: 24),
+                const SizedBox(height: 3),
+                Text(label, maxLines: 1, style: TextStyle(fontSize: 11, color: on ? c.accent : c.textSubtle, fontWeight: on ? FontWeight.w600 : FontWeight.w400)),
+              ]),
+            ),
           ),
         ),
       );

@@ -94,8 +94,11 @@ class VaultScreen extends ConsumerWidget {
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Row(children: [
                     Text('Storage', style: TextStyle(fontWeight: FontWeight.w500, color: c.text)),
-                    const Spacer(),
-                    Text('${fmtBytes(me.usage.storageUsed)} of ${fmtBytes(me.usage.storageLimit)}', style: TextStyle(fontSize: 13, color: c.textMuted)),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text('${fmtBytes(me.usage.storageUsed)} of ${fmtBytes(me.usage.storageLimit)}',
+                          textAlign: TextAlign.right, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13, color: c.textMuted)),
+                    ),
                   ]),
                   const SizedBox(height: 8),
                   WProgressBar(me.usage.storageLimit == 0 ? 0 : (me.usage.storageUsed / me.usage.storageLimit).clamp(0, 1).toDouble()),
