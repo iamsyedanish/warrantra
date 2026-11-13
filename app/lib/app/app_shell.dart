@@ -49,7 +49,9 @@ class _AppShellState extends ConsumerState<AppShell> {
         decoration: BoxDecoration(color: c.surface, border: Border(top: BorderSide(color: c.divider))),
         child: SafeArea(
           top: false,
-          child: Row(children: [
+          child: SizedBox(
+            height: 64,
+            child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
             tab(0, PhosphorIconsRegular.house, PhosphorIconsFill.house, 'Home'),
             tab(1, PhosphorIconsRegular.package, PhosphorIconsFill.package, 'Items'),
             Expanded(
@@ -58,13 +60,17 @@ class _AppShellState extends ConsumerState<AppShell> {
                   button: true,
                   label: 'Add purchase',
                   child: InkWell(
-                    customBorder: const CircleBorder(),
+                    borderRadius: BorderRadius.circular(14),
                     onTap: () => showAddSheet(context),
                     child: Container(
-                      width: 52,
-                      height: 52,
-                      decoration: BoxDecoration(color: c.accent, shape: BoxShape.circle, boxShadow: [BoxShadow(color: c.accent.withValues(alpha: 0.35), blurRadius: 14, offset: const Offset(0, 4))]),
-                      child: Icon(PhosphorIconsBold.plus, color: c.onAccent, size: 24),
+                      width: 48,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: c.accentSoft,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: c.accent, width: 1.4),
+                      ),
+                      child: Icon(PhosphorIconsRegular.plus, color: c.accentSoftText, size: 24),
                     ),
                   ),
                 ),
@@ -73,6 +79,7 @@ class _AppShellState extends ConsumerState<AppShell> {
             tab(2, PhosphorIconsRegular.vault, PhosphorIconsFill.vault, 'Vault'),
             tab(3, PhosphorIconsRegular.gear, PhosphorIconsFill.gear, 'Settings'),
           ]),
+          ),
         ),
       ),
     );

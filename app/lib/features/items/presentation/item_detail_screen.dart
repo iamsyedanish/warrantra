@@ -21,9 +21,11 @@ class ItemDetailScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final detail = ref.watch(itemDetailProvider(itemId));
     return WScreen(
-      title: 'Item',
       actions: [
-        if (detail.hasValue) _ItemMenu(item: detail.value!),
+        if (detail.hasValue) ...[
+          WIconButton(PhosphorIconsRegular.pencilSimple, tooltip: 'Edit', onPressed: () => context.push('/items/$itemId/edit')),
+          _ItemMenu(item: detail.value!),
+        ],
       ],
       children: [
         AsyncBody<ItemDetail>(
@@ -46,15 +48,17 @@ class _Body extends ConsumerWidget {
     final s = d.summary;
     final activeReturns = d.returns.where((r) => !r.dismissed && !['refunded', 'cancelled', 'rejected'].contains(r.state)).toList();
     final pendingRegs = d.registrations.where((g) => !g.done && g.status != 'not_applicable' && g.status != 'dismissed').toList();
-    final sub = [s.brand, s.model].whereType<String>().where((x) => x.isNotEmpty).join(' · ');
+    final overline = [s.brand, if (s.categorySlug != null) titleCase(s.categorySlug!.replaceAll('_', ' & '))].whereType<String>().where((x) => x.isNotEmpty).join(' · ');
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      Row(children: [
-        IconTile(itemIcon(category: s.categorySlug, name: s.name), size: 56),
+      Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        IconTile(itemIcon(category: s.categorySlug, name: s.name), size: 52),
         const SizedBox(width: 14),
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            if (overline.isNotEmpty) Text(overline.toUpperCase(), style: TextStyle(fontSize: 10.5, letterSpacing: 1, fontWeight: FontWeight.w600, color: c.accent)),
+            const SizedBox(height: 2),
             Text(s.name, style: context.t.headlineSmall),
-            if (sub.isNotEmpty) Text(sub, style: TextStyle(color: c.textMuted)),
+            if (s.model != null && s.model!.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 2), child: Text(s.model!, style: TextStyle(fontSize: 13, color: c.textMuted))),
           ]),
         ),
       ]),
@@ -68,10 +72,7 @@ class _Body extends ConsumerWidget {
       const SizedBox(height: 6),
 
       // ---- Return windows
-      for (final r in activeReturns) ...[
-        const WSectionHeader('Return window'),
-        _ReturnCard(itemId: s.id, r: r),
-      ],
+      for (final r in activeReturns) Padding(padding: const EdgeInsets.only(top: 12), child: _ReturnCard(itemId: s.id, r: r)),
 
       // ---- Coverage
       WSectionHeader('Coverage', action: 'Add', actionIcon: PhosphorIconsRegular.plus, onAction: () => context.push('/items/${s.id}/coverage/new')),
@@ -140,20 +141,16 @@ class _Body extends ConsumerWidget {
           ),
 
       // ---- Details
-      const WSectionHeader('Details'),
-      WCard(
-        child: Column(children: [
-          WKeyValue('Purchased', fmtDate(s.purchaseDate, empty: 'Unknown')),
-          if (d.deliveryDate != null) WKeyValue('Delivered', fmtDate(d.deliveryDate)),
-          WKeyValue('Store', s.retailer ?? 'Unknown'),
-          if (d.orderNumber != null) WKeyValue('Order number', d.orderNumber!),
-          if (s.model != null) WKeyValue('Model', s.model!),
-          WKeyValue('Serial number', d.serial ?? 'Not recorded'),
-          if (d.quantity > 1) WKeyValue('Quantity', '${d.quantity}'),
-          WKeyValue('Condition', titleCase(d.condition)),
-          if (d.notes != null && d.notes!.isNotEmpty) WKeyValue('Notes', d.notes!),
-        ]),
-      ),
+      const WSectionHeader('Purchase'),
+      _FactRow('Retailer', s.retailer ?? 'Unknown'),
+      if (d.orderNumber != null) _FactRow('Order', d.orderNumber!),
+      _FactRow('Purchased', fmtDate(s.purchaseDate, empty: 'Unknown')),
+      if (d.deliveryDate != null) _FactRow('Delivered', fmtDate(d.deliveryDate)),
+      if (s.price != null) _FactRow('Price', fmtMoney(s.price, currency: s.currency), note: d.priceIsEstimated ? 'Estimated share of a multi-item receipt' : 'Line amount'),
+      _SerialRow(serial: d.serial),
+      if (d.quantity > 1) _FactRow('Quantity', '${d.quantity}'),
+      _FactRow('Condition', titleCase(d.condition)),
+      if (d.notes != null && d.notes!.isNotEmpty) _FactRow('Notes', d.notes!),
       const SizedBox(height: 8),
       WListRow(icon: PhosphorIconsRegular.wrench, title: 'Service & maintenance', subtitle: 'Repairs, servicing and recurring tasks', onTap: () => context.push('/maintenance?item=${s.id}'), dense: true),
 
@@ -211,28 +208,42 @@ class _ReturnCard extends StatelessWidget {
     final c = context.w;
     final days = daysUntil(r.deadline);
     final urgent = days != null && days <= 3;
-    return WCard(
-      color: urgent ? c.urgentSoft : null,
-      onTap: () => context.push('/items/$itemId/return/${r.id}'),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          Expanded(
-            child: Text(r.deadline == null ? 'Return deadline unknown' : '${returnMeaning(r.deadlineBasis)} ${fmtDate(r.deadline)}',
-                style: TextStyle(fontSize: 15.5, fontWeight: FontWeight.w500, color: c.text)),
-          ),
-          CertBadge(r.certainty),
-        ]),
-        const SizedBox(height: 4),
-        Text(
-          [
-            if (days != null) daysLeftLabel(days),
-            if (r.windowDays != null) '${r.windowDays}-day window from ${returnAnchorLabel(r.anchor)}',
-            if (r.retailer != null) r.retailer!,
-          ].join(' · '),
-          style: TextStyle(fontSize: 13, color: urgent ? c.urgent : c.textMuted),
+    final title = r.state != 'not_started'
+        ? returnStateLabel(r.state)
+        : r.deadline == null
+            ? 'Return deadline unknown'
+            : days != null && days <= 1
+                ? (days < 0 ? 'Return window closed' : days == 0 ? 'Return window ends today' : 'Return window ends tomorrow')
+                : 'Return window ends ${relativeDays(days)}';
+    return Material(
+      color: urgent ? c.accentSoft : c.surface,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(WRadius.lg), side: BorderSide(color: urgent ? c.accent : c.divider)),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => context.push('/items/$itemId/return/${r.id}'),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(children: [
+            Icon(PhosphorIconsRegular.arrowUUpLeft, size: 20, color: urgent ? c.accentSoftText : c.textMuted),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(title, style: TextStyle(fontSize: 15.5, fontWeight: FontWeight.w600, color: urgent ? c.accentSoftText : c.text)),
+                const SizedBox(height: 2),
+                Text(
+                  [
+                    ?r.retailer,
+                    if (r.deadline != null) '${returnMeaning(r.deadlineBasis).toLowerCase()} ${fmtDayShort(r.deadline)}',
+                    if (r.windowDays != null) 'counted from ${returnAnchorLabel(r.anchor)}',
+                  ].join(' · '),
+                  style: TextStyle(fontSize: 12.5, height: 1.4, color: urgent ? c.accentSoftText : c.textMuted),
+                ),
+              ]),
+            ),
+            Icon(PhosphorIconsRegular.caretRight, size: 16, color: urgent ? c.accentSoftText : c.textSubtle),
+          ]),
         ),
-        if (r.state != 'not_started') ...[const SizedBox(height: 8), WTag(returnStateLabel(r.state), kind: WTagKind.accent)],
-      ]),
+      ),
     );
   }
 }
@@ -250,17 +261,22 @@ class _WarrantyCard extends StatelessWidget {
       onTap: () => context.push('/items/$itemId/coverage/${w.id}'),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
-          Expanded(child: Text(coverageTitle(w), style: TextStyle(fontSize: 15.5, fontWeight: FontWeight.w500, color: c.text))),
+          Expanded(
+            child: Text([coverageTypeLabels[w.coverageType] ?? 'Coverage', ?w.provider].join(' · ').toUpperCase(),
+                style: TextStyle(fontSize: 10.5, letterSpacing: 1, fontWeight: FontWeight.w600, color: c.accent)),
+          ),
           CertBadge(w.certainty),
         ]),
-        if (w.provider != null) Text(w.provider!, style: TextStyle(fontSize: 13, color: c.textMuted)),
+        const SizedBox(height: 6),
+        Text(coverageTitle(w), style: TextStyle(fontSize: 17, fontWeight: FontWeight.w500, color: c.text)),
+        const SizedBox(height: 2),
+        Text(coverageTerm(w), style: TextStyle(fontSize: 13, color: c.textMuted)),
+        if (p != null) ...[const SizedBox(height: 10), WProgressBar(p)],
         const SizedBox(height: 8),
-        Text(coverageRange(w), style: TextStyle(fontSize: 13, color: c.textMuted)),
-        if (p != null) ...[const SizedBox(height: 8), WProgressBar(p)],
-        if (w.daysRemaining != null && w.daysRemaining! >= 0 && !inactive) ...[
-          const SizedBox(height: 6),
-          Text('${w.daysRemaining} days remaining', style: TextStyle(fontSize: 12, color: c.textSubtle)),
-        ],
+        Row(children: [
+          Expanded(child: Text(coverageRange(w), style: TextStyle(fontSize: 13, color: c.text))),
+          if (w.daysRemaining != null && w.daysRemaining! >= 0 && !inactive) Text('${w.daysRemaining} days left', style: TextStyle(fontSize: 13, color: c.textMuted)),
+        ]),
         if (inactive) ...[const SizedBox(height: 6), WTag(titleCase(w.contractState), kind: WTagKind.outline)],
         if (w.certainty == 'estimated' && !w.estimateAccepted) ...[
           const SizedBox(height: 8),
@@ -399,5 +415,60 @@ Future<void> showLifecycleSheet(BuildContext context, WidgetRef ref, ItemDetail 
     if (context.mounted) showToast(context, 'Marked as ${lifecycleLabels[picked]!.toLowerCase()}');
   } catch (e) {
     if (context.mounted) showFailure(context, e);
+  }
+}
+
+/// Label/value row with a divider, as in the prototype's Purchase list.
+class _FactRow extends StatelessWidget {
+  const _FactRow(this.label, this.value, {this.note, this.trailing});
+  final String label, value;
+  final String? note;
+  final Widget? trailing;
+  @override
+  Widget build(BuildContext context) {
+    final c = context.w;
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 11),
+      decoration: BoxDecoration(border: Border(bottom: BorderSide(color: c.divider))),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(label, style: TextStyle(fontSize: 14.5, color: c.textMuted)),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+            Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+              Flexible(child: Text(value, textAlign: TextAlign.right, style: TextStyle(fontSize: 14.5, color: c.text))),
+              if (trailing != null) ...[const SizedBox(width: 6), trailing!],
+            ]),
+            if (note != null) Text(note!, style: TextStyle(fontSize: 11.5, color: c.textSubtle)),
+          ]),
+        ),
+      ]),
+    );
+  }
+}
+
+/// Serial numbers are masked until the user chooses to show them.
+class _SerialRow extends StatefulWidget {
+  const _SerialRow({this.serial});
+  final String? serial;
+  @override
+  State<_SerialRow> createState() => _SerialRowState();
+}
+
+class _SerialRowState extends State<_SerialRow> {
+  bool show = false;
+  @override
+  Widget build(BuildContext context) {
+    final sn = widget.serial;
+    if (sn == null || sn.isEmpty) return const _FactRow('Serial', 'Not recorded');
+    final masked = sn.length <= 4 ? sn : '${sn.substring(0, 4)}${'•' * (sn.length - 4).clamp(0, 8)}';
+    return _FactRow(
+      'Serial',
+      show ? sn : masked,
+      trailing: InkWell(
+        onTap: () => setState(() => show = !show),
+        child: Icon(show ? PhosphorIconsRegular.eyeSlash : PhosphorIconsRegular.eye, size: 16, color: context.w.textSubtle),
+      ),
+    );
   }
 }

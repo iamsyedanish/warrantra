@@ -95,7 +95,7 @@ class _ClaimPackScreenState extends ConsumerState<ClaimPackScreen> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text('Summary + ${cl.docs.where((d) => d.includeInPack).length} documents', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: c.text)),
+                    Text(_packLabel(cl.docs.where((d) => d.includeInPack).length), style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: c.text)),
                     Text(assembled ? 'One PDF with your evidence attached' : 'PDF and plain text · built only from what you saved', style: TextStyle(fontSize: 12.5, color: c.textMuted)),
                   ]),
                 ),
@@ -428,3 +428,5 @@ class OutcomesScreen extends ConsumerWidget {
     );
   }
 }
+
+String _packLabel(int n) => n == 0 ? 'Summary only' : 'Summary + $n document${n == 1 ? '' : 's'}';

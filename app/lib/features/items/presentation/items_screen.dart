@@ -70,7 +70,7 @@ class _ItemsScreenState extends ConsumerState<ItemsScreen> {
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 12, 12, 0),
             child: Row(children: [
-              Expanded(child: Text('Items', style: context.t.headlineMedium)),
+              Expanded(child: Text('My items', style: context.t.headlineMedium)),
               PopupMenuButton<String>(
                 tooltip: 'Sort',
                 icon: Icon(PhosphorIconsRegular.sortAscending, color: c.text),
@@ -98,6 +98,25 @@ class _ItemsScreenState extends ConsumerState<ItemsScreen> {
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 2, 20, 8),
               child: Text(me.plan.isPro ? '${me.usage.itemsUsed} items' : me.itemsLine, style: TextStyle(fontSize: 13, color: c.textMuted)),
+            ),
+          if (me != null && !me.plan.isPro)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
+              child: WCard(
+                child: Row(children: [
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text('${me.itemsLine} on Free', style: TextStyle(fontWeight: FontWeight.w500, color: c.text)),
+                      const SizedBox(height: 6),
+                      WProgressBar(me.usage.itemsLimit == 0 ? 0 : (me.usage.itemsUsed / me.usage.itemsLimit).clamp(0, 1).toDouble()),
+                      const SizedBox(height: 4),
+                      Text('Returned and archived items count too.', style: TextStyle(fontSize: 12, color: c.textSubtle)),
+                    ]),
+                  ),
+                  const SizedBox(width: 12),
+                  WButton.secondary('See Pro', expand: false, compact: true, onPressed: () => context.push('/settings/paywall')),
+                ]),
+              ),
             ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -164,7 +183,7 @@ class _ItemsScreenState extends ConsumerState<ItemsScreen> {
                   return ListView.separated(
                     padding: const EdgeInsets.fromLTRB(20, 4, 20, 110),
                     itemCount: list.length,
-                    separatorBuilder: (_, _) => const SizedBox(height: 8),
+                    separatorBuilder: (_, _) => const SizedBox(height: 10),
                     itemBuilder: (_, i) => ItemCard(list[i]),
                   );
                 },
@@ -181,30 +200,72 @@ class ItemCard extends StatelessWidget {
   const ItemCard(this.item, {super.key});
   final ItemSummary item;
 
+  String _coverageLine() {
+    if (item.coverageCount == 0) return 'Coverage unknown';
+    final s = parseDate(item.purchaseDate), e = parseDate(item.nearestCoverageEnd);
+    if (s != null && e != null) {
+      final months = ((e.difference(s).inDays) / 30.4).round();
+      final term = months % 12 == 0 && months >= 12 ? '${months ~/ 12}-year' : '$months-month';
+      return '$term coverage${item.coverageCount > 1 ? ' + ${item.coverageCount - 1} more' : ''}';
+    }
+    return item.nearestCoverageEnd == null ? 'Lifetime or open-ended coverage' : 'Coverage until ${fmtDate(item.nearestCoverageEnd)}';
+  }
+
   @override
   Widget build(BuildContext context) {
     final c = context.w;
     final (status, urgent) = itemStatus(item);
-    final sub = [item.brand, item.retailer, if (item.purchaseDate != null) fmtDate(item.purchaseDate)].whereType<String>().where((s) => s.isNotEmpty).join(' · ');
+    final returnSoon = (daysUntil(item.nextReturnDeadline) ?? -1) >= 0;
+    final start = parseDate(item.purchaseDate), end = parseDate(item.nearestCoverageEnd);
+    double? progress;
+    if (start != null && end != null && end.isAfter(start)) {
+      progress = (DateTime.now().difference(start).inDays / end.difference(start).inDays).clamp(0, 1).toDouble();
+    }
+    final left = daysUntil(item.nearestCoverageEnd);
+    final overline = [item.brand, if (item.lifecycle != 'owned') lifecycleLabels[item.lifecycle]].whereType<String>().join(' · ');
     return WCard(
       onTap: () => context.push('/items/${item.id}'),
-      child: Row(children: [
-        IconTile(itemIcon(category: item.categorySlug, name: item.name), size: 44),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(item.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 15.5, fontWeight: FontWeight.w500, color: c.text)),
-            if (sub.isNotEmpty) Text(sub, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12.5, color: c.textMuted)),
-            const SizedBox(height: 4),
-            Row(children: [
-              Icon(urgent ? PhosphorIconsFill.warningCircle : PhosphorIconsRegular.clock, size: 13, color: urgent ? c.urgent : c.textSubtle),
-              const SizedBox(width: 4),
-              Flexible(child: Text(status, style: TextStyle(fontSize: 12, color: urgent ? c.urgent : c.textSubtle, fontWeight: urgent ? FontWeight.w600 : FontWeight.w400))),
-              if (!item.hasReceipt) ...[const SizedBox(width: 8), const WTag('No receipt', kind: WTagKind.outline)],
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              if (overline.isNotEmpty)
+                Text(overline.toUpperCase(), style: TextStyle(fontSize: 10.5, letterSpacing: 1, fontWeight: FontWeight.w600, color: c.accent)),
+              const SizedBox(height: 2),
+              Text(item.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500, color: c.text, height: 1.25)),
             ]),
+          ),
+          const SizedBox(width: 10),
+          Icon(itemIcon(category: item.categorySlug, name: item.name), size: 22, color: c.textMuted),
+        ]),
+        const SizedBox(height: 10),
+        if (returnSoon) ...[
+          Row(children: [
+            Icon(PhosphorIconsRegular.arrowUUpLeft, size: 15, color: urgent ? c.accent : c.textMuted),
+            const SizedBox(width: 6),
+            Expanded(child: Text(status, style: TextStyle(fontSize: 13.5, fontWeight: urgent ? FontWeight.w600 : FontWeight.w400, color: urgent ? c.accentSoftText : c.textMuted))),
           ]),
-        ),
-        if (item.price != null) Text(fmtMoney(item.price, currency: item.currency), style: TextStyle(fontSize: 13.5, color: c.textMuted)),
+          const SizedBox(height: 8),
+        ],
+        Row(children: [
+          Expanded(child: Text(_coverageLine(), style: TextStyle(fontSize: 13.5, color: c.textMuted))),
+          if (item.hasUnconfirmedCoverage) const CertBadge('estimated'),
+          if (!item.hasReceipt) ...[const SizedBox(width: 6), const WTag('No receipt', kind: WTagKind.outline)],
+        ]),
+        if (progress != null) ...[
+          const SizedBox(height: 10),
+          WProgressBar(progress),
+          const SizedBox(height: 8),
+          Row(children: [
+            Text(left == null ? '' : left < 0 ? 'Ended' : '$left days left', style: TextStyle(fontSize: 12.5, color: c.textSubtle)),
+            const Spacer(),
+            Text(fmtDate(item.nearestCoverageEnd), style: TextStyle(fontSize: 12.5, color: c.textSubtle)),
+          ]),
+        ] else if (!returnSoon && status != _coverageLine()) ...[
+          const SizedBox(height: 6),
+          Text(status, style: TextStyle(fontSize: 12.5, color: c.textSubtle)),
+        ],
       ]),
     );
   }

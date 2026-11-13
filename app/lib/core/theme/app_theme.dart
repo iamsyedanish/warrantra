@@ -49,7 +49,7 @@ class AppTheme {
         filled: true,
         fillColor: c.surface,
         isDense: true,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         hintStyle: TextStyle(color: c.textSubtle),
         border: border,
         enabledBorder: border,
@@ -69,6 +69,19 @@ class AppTheme {
         behavior: SnackBarBehavior.floating, backgroundColor: c.surfaceRaised,
         contentTextStyle: TextStyle(fontFamily: 'Inter', color: c.text, fontSize: 14),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(WRadius.md)),
+      ),
+      // Compact pill chips as in the prototype (no checkmark, accent outline when selected).
+      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      chipTheme: ChipThemeData(
+        showCheckmark: false,
+        backgroundColor: c.surface,
+        selectedColor: c.accentSoft,
+        labelStyle: TextStyle(fontFamily: 'Inter', fontSize: 13, fontWeight: FontWeight.w500, color: c.text),
+        secondaryLabelStyle: TextStyle(fontFamily: 'Inter', fontSize: 13, fontWeight: FontWeight.w500, color: c.accentSoftText),
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
+        labelPadding: const EdgeInsets.symmetric(horizontal: 8),
+        shape: StadiumBorder(side: BorderSide(color: c.divider)),
+        side: WidgetStateBorderSide.resolveWith((s) => BorderSide(color: s.contains(WidgetState.selected) ? c.accent : c.divider)),
       ),
       progressIndicatorTheme: ProgressIndicatorThemeData(color: c.accent, linearTrackColor: c.accentSoft),
       switchTheme: SwitchThemeData(

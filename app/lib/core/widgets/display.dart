@@ -22,13 +22,29 @@ class WTag extends StatelessWidget {
       WTagKind.urgent => (c.urgentSoft, c.urgent, Colors.transparent),
       WTagKind.danger => (c.dangerSoft, c.danger, Colors.transparent),
     };
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(WRadius.pill), border: Border.all(color: border)),
-      child: Row(mainAxisSize: MainAxisSize.min, children: [
-        if (icon != null) ...[Icon(icon, size: 12, color: fg), const SizedBox(width: 4)],
-        Text(label, style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w500, color: fg)),
-      ]),
+    // Never stretch to the parent's width (tags sit in stretch columns).
+    return Align(
+      alignment: AlignmentDirectional.centerStart,
+      widthFactor: 1,
+      heightFactor: 1,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(WRadius.pill),
+          border: Border.all(color: border),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (icon != null) ...[Icon(icon, size: 12, color: fg), const SizedBox(width: 4)],
+            Text(
+              label,
+              style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w500, color: fg),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -40,11 +56,11 @@ class CertBadge extends StatelessWidget {
   final bool long;
 
   static (String, String, IconData, WTagKind) describe(String? c) => switch (c) {
-        'document_verified' => ('Verified', 'Verified from document', PhosphorIconsRegular.sealCheck, WTagKind.accent),
-        'user_confirmed' => ('Confirmed', 'You confirmed', PhosphorIconsRegular.userCheck, WTagKind.neutral),
-        'estimated' => ('Estimated', 'Estimated', PhosphorIconsRegular.circleDashed, WTagKind.outline),
-        _ => ('Unknown', 'Unknown', PhosphorIconsRegular.question, WTagKind.neutral),
-      };
+    'document_verified' => ('Verified', 'Verified from document', PhosphorIconsRegular.sealCheck, WTagKind.accent),
+    'user_confirmed' => ('Confirmed', 'You confirmed', PhosphorIconsRegular.userCheck, WTagKind.neutral),
+    'estimated' => ('Estimated', 'Estimated', PhosphorIconsRegular.circleDashed, WTagKind.outline),
+    _ => ('Unknown', 'Unknown', PhosphorIconsRegular.question, WTagKind.neutral),
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -72,14 +88,28 @@ class WCard extends StatelessWidget {
         side: border ? BorderSide(color: c.divider) : BorderSide.none,
       ),
       clipBehavior: Clip.antiAlias,
-      child: InkWell(onTap: onTap, child: Padding(padding: padding, child: child)),
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(padding: padding, child: child),
+      ),
     );
   }
 }
 
 /// A tappable row with a leading icon tile, title, subtitle and trailing caret.
 class WListRow extends StatelessWidget {
-  const WListRow({super.key, required this.title, this.subtitle, this.icon, this.leading, this.trailing, this.onTap, this.caret = true, this.dense = false, this.titleColor});
+  const WListRow({
+    super.key,
+    required this.title,
+    this.subtitle,
+    this.icon,
+    this.leading,
+    this.trailing,
+    this.onTap,
+    this.caret = true,
+    this.dense = false,
+    this.titleColor,
+  });
   final String title;
   final String? subtitle;
   final IconData? icon;
@@ -98,21 +128,28 @@ class WListRow extends StatelessWidget {
       borderRadius: BorderRadius.circular(WRadius.md),
       child: Padding(
         padding: EdgeInsets.symmetric(vertical: dense ? 8 : 11, horizontal: 2),
-        child: Row(children: [
-          if (leading != null) ...[leading!, const SizedBox(width: 12)]
-          else if (icon != null) ...[IconTile(icon!), const SizedBox(width: 12)],
-          Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(title, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: titleColor ?? c.text)),
-              if (subtitle != null && subtitle!.isNotEmpty) ...[
-                const SizedBox(height: 2),
-                Text(subtitle!, style: TextStyle(fontSize: 13, height: 1.35, color: c.textMuted)),
-              ],
-            ]),
-          ),
-          if (trailing != null) ...[const SizedBox(width: 8), trailing!],
-          if (caret && onTap != null) ...[const SizedBox(width: 6), Icon(PhosphorIconsRegular.caretRight, size: 16, color: c.textSubtle)],
-        ]),
+        child: Row(
+          children: [
+            if (leading != null) ...[leading!, const SizedBox(width: 12)] else if (icon != null) ...[IconTile(icon!), const SizedBox(width: 12)],
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: titleColor ?? c.text),
+                  ),
+                  if (subtitle != null && subtitle!.isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    Text(subtitle!, style: TextStyle(fontSize: 13, height: 1.35, color: c.textMuted)),
+                  ],
+                ],
+              ),
+            ),
+            if (trailing != null) ...[const SizedBox(width: 8), trailing!],
+            if (caret && onTap != null) ...[const SizedBox(width: 6), Icon(PhosphorIconsRegular.caretRight, size: 16, color: c.textSubtle)],
+          ],
+        ),
       ),
     );
   }
@@ -129,8 +166,12 @@ class IconTile extends StatelessWidget {
     return Container(
       width: size,
       height: size,
-      decoration: BoxDecoration(color: emphasis ? c.urgentSoft : c.accentSoft, borderRadius: BorderRadius.circular(WRadius.md)),
-      child: Icon(icon, size: size * 0.5, color: emphasis ? c.urgent : c.accentSoftText),
+      decoration: BoxDecoration(
+        color: emphasis ? c.accentSoft : c.surfaceRaised,
+        borderRadius: BorderRadius.circular(WRadius.md),
+        border: Border.all(color: emphasis ? c.accent : Colors.transparent, width: 1.2),
+      ),
+      child: Icon(icon, size: size * 0.48, color: emphasis ? c.accentSoftText : c.textMuted),
     );
   }
 }
@@ -147,22 +188,34 @@ class WSectionHeader extends StatelessWidget {
     final c = context.w;
     return Padding(
       padding: const EdgeInsets.only(top: 20, bottom: 6),
-      child: Row(children: [
-        Expanded(child: Text(label.toUpperCase(), style: TextStyle(fontSize: 11, letterSpacing: 1.1, fontWeight: FontWeight.w600, color: c.textSubtle))),
-        if (action != null)
-          InkWell(
-            onTap: onAction,
-            borderRadius: BorderRadius.circular(6),
-            child: Padding(
-              padding: const EdgeInsets.all(4),
-              child: Row(children: [
-                Icon(actionIcon ?? PhosphorIconsRegular.plus, size: 14, color: c.accent),
-                const SizedBox(width: 4),
-                Text(action!, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: c.accent)),
-              ]),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              label.toUpperCase(),
+              style: TextStyle(fontSize: 11, letterSpacing: 1.1, fontWeight: FontWeight.w600, color: c.textSubtle),
             ),
           ),
-      ]),
+          if (action != null)
+            InkWell(
+              onTap: onAction,
+              borderRadius: BorderRadius.circular(6),
+              child: Padding(
+                padding: const EdgeInsets.all(4),
+                child: Row(
+                  children: [
+                    Icon(actionIcon ?? PhosphorIconsRegular.plus, size: 14, color: c.accent),
+                    const SizedBox(width: 4),
+                    Text(
+                      action!,
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: c.accent),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
     );
   }
 }
@@ -179,11 +232,16 @@ class WNote extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(color: emphasis ? c.accentSoft : c.surfaceRaised, borderRadius: BorderRadius.circular(WRadius.md)),
-      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Icon(icon ?? PhosphorIconsRegular.info, size: 16, color: emphasis ? c.accentSoftText : c.textMuted),
-        const SizedBox(width: 8),
-        Expanded(child: Text(text, style: TextStyle(fontSize: 13, height: 1.45, color: emphasis ? c.accentSoftText : c.textMuted))),
-      ]),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon ?? PhosphorIconsRegular.info, size: 16, color: emphasis ? c.accentSoftText : c.textMuted),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(text, style: TextStyle(fontSize: 13, height: 1.45, color: emphasis ? c.accentSoftText : c.textMuted)),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -200,16 +258,25 @@ class WKeyValue extends StatelessWidget {
     final c = context.w;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        SizedBox(width: 110, child: Text(k, style: TextStyle(fontSize: 13.5, color: c.textMuted))),
-        Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(v, style: TextStyle(fontSize: 14.5, color: c.text)),
-            if (note != null) Text(note!, style: TextStyle(fontSize: 12, color: c.textSubtle)),
-          ]),
-        ),
-        if (trailing != null) trailing!,
-      ]),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 110,
+            child: Text(k, style: TextStyle(fontSize: 13.5, color: c.textMuted)),
+          ),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(v, style: TextStyle(fontSize: 14.5, color: c.text)),
+                if (note != null) Text(note!, style: TextStyle(fontSize: 12, color: c.textSubtle)),
+              ],
+            ),
+          ),
+          if (trailing != null) trailing!,
+        ],
+      ),
     );
   }
 }
@@ -239,14 +306,20 @@ class WEmpty extends StatelessWidget {
     final c = context.w;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 8),
-      child: Column(children: [
-        IconTile(icon, size: 56),
-        const SizedBox(height: 14),
-        Text(title, textAlign: TextAlign.center, style: context.t.titleLarge),
-        const SizedBox(height: 6),
-        Text(message, textAlign: TextAlign.center, style: TextStyle(fontSize: 14.5, height: 1.5, color: c.textMuted)),
-        if (action != null) ...[const SizedBox(height: 18), action!],
-      ]),
+      child: Column(
+        children: [
+          IconTile(icon, size: 56),
+          const SizedBox(height: 14),
+          Text(title, textAlign: TextAlign.center, style: context.t.titleLarge),
+          const SizedBox(height: 6),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 14.5, height: 1.5, color: c.textMuted),
+          ),
+          if (action != null) ...[const SizedBox(height: 18), action!],
+        ],
+      ),
     );
   }
 }
@@ -268,8 +341,15 @@ class WAvatar extends StatelessWidget {
       width: size,
       height: size,
       alignment: Alignment.center,
-      decoration: BoxDecoration(color: c.accentSoft, shape: BoxShape.circle, border: Border.all(color: c.accentRing)),
-      child: Text(initials, style: TextStyle(fontSize: size * 0.36, fontWeight: FontWeight.w600, color: c.accentSoftText)),
+      decoration: BoxDecoration(
+        color: c.accentSoft,
+        shape: BoxShape.circle,
+        border: Border.all(color: c.accentRing),
+      ),
+      child: Text(
+        initials,
+        style: TextStyle(fontSize: size * 0.36, fontWeight: FontWeight.w600, color: c.accentSoftText),
+      ),
     );
   }
 }
@@ -280,4 +360,31 @@ class WLogo extends StatelessWidget {
   final double size;
   @override
   Widget build(BuildContext context) => Image.asset('assets/brand/logo.png', width: size, height: size, semanticLabel: 'Warrantra');
+}
+
+/// A card holding several rows separated by hairlines (grouped settings list).
+class WGroup extends StatelessWidget {
+  const WGroup({super.key, required this.children});
+  final List<Widget> children;
+  @override
+  Widget build(BuildContext context) {
+    final c = context.w;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: c.surface,
+        borderRadius: BorderRadius.circular(WRadius.lg),
+        border: Border.all(color: c.divider),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        children: [
+          for (final (i, ch) in children.indexed) ...[
+            if (i > 0) Divider(height: 1, indent: 64, color: c.divider),
+            Padding(padding: const EdgeInsets.symmetric(horizontal: 12), child: ch),
+          ],
+        ],
+      ),
+    );
+  }
 }

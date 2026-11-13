@@ -37,6 +37,9 @@ class _RouterRefresh extends ChangeNotifier {
   void ping() => notifyListeners();
 }
 
+/// Design-review only: open this route after sign-in (`--dart-define=DEMO_ROUTE=/items`).
+const _demoRoute = String.fromEnvironment('DEMO_ROUTE');
+
 const _public = {'/splash', '/onboarding', '/signin', '/signup', '/forgot'};
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -61,7 +64,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         final seen = ref.read(sharedPrefsProvider).getBool(OnboardingScreen.seenKey) ?? false;
         return seen ? '/signin' : '/onboarding';
       }
-      if (_public.contains(loc)) return '/home';
+      if (_public.contains(loc)) return _demoRoute.isNotEmpty ? _demoRoute : '/home';
       return null;
     },
     routes: [

@@ -178,13 +178,7 @@ class _FullHome extends ConsumerWidget {
       ],
       if (center.missing.isNotEmpty) ...[
         const WSectionHeader('Missing info'),
-        for (final m in center.missing.take(4))
-          WListRow(
-            icon: m.kind == 'missing_receipt' ? PhosphorIconsRegular.receipt : PhosphorIconsRegular.question,
-            title: m.title,
-            subtitle: m.itemName,
-            onTap: () => _open(context, m),
-          ),
+        for (final m in center.missing.take(4)) Padding(padding: const EdgeInsets.only(bottom: 10), child: _ActionCard(m)),
       ],
       if (recent.isNotEmpty) ...[
         WSectionHeader('Recent purchases', action: 'All items', actionIcon: PhosphorIconsRegular.list, onAction: () => context.go('/items')),
@@ -217,6 +211,15 @@ void _open(BuildContext context, ActionItem a) {
   }
 }
 
+String _due(ActionItem a) {
+  final d = a.daysLeft;
+  if (d == null || !a.urgent) return '';
+  if (d < 0) return ' · OVERDUE';
+  if (d == 0) return ' · DUE TODAY';
+  if (d == 1) return ' · DUE TOMORROW';
+  return ' · ${d}D LEFT';
+}
+
 class _ActionCard extends StatelessWidget {
   const _ActionCard(this.a);
   final ActionItem a;
@@ -227,6 +230,8 @@ class _ActionCard extends StatelessWidget {
         'coverage_ending' => ('Coverage', PhosphorIconsRegular.shieldCheck),
         'claim_follow_up' => ('Claim', PhosphorIconsRegular.chatCircleText),
         'maintenance_due' => ('Maintenance', PhosphorIconsRegular.wrench),
+        'missing_receipt' => ('Missing info', PhosphorIconsRegular.receipt),
+        'missing_coverage' || 'missing_information' => ('Missing info', PhosphorIconsRegular.question),
         _ => ('Action', PhosphorIconsRegular.info),
       };
 
@@ -236,23 +241,29 @@ class _ActionCard extends StatelessWidget {
     final (kind, icon) = kindInfo;
     return WCard(
       onTap: () => _open(context, a),
-      color: a.urgent ? c.urgentSoft : null,
-      child: Row(children: [
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
         IconTile(icon, emphasis: a.urgent),
         const SizedBox(width: 12),
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(children: [
-              Text(kind.toUpperCase(), style: TextStyle(fontSize: 10.5, letterSpacing: 1, fontWeight: FontWeight.w600, color: a.urgent ? c.urgent : c.textSubtle)),
+              Flexible(
+                child: Text('${kind.toUpperCase()}${_due(a)}',
+                    style: TextStyle(fontSize: 10.5, letterSpacing: 1, fontWeight: FontWeight.w600, color: a.urgent ? c.accent : c.textSubtle)),
+              ),
               if (a.certainty == 'estimated') ...[const SizedBox(width: 6), const CertBadge('estimated')],
             ]),
             const SizedBox(height: 2),
             Text(a.title, style: TextStyle(fontSize: 15.5, fontWeight: FontWeight.w500, color: c.text)),
             Text(a.itemName, style: TextStyle(fontSize: 13, color: c.textMuted)),
-            if (a.detail != null) Text('${a.detail}${a.dueDate == null ? '' : ' · ${fmtDayShort(a.dueDate)}'}', style: TextStyle(fontSize: 12, color: c.textSubtle)),
+            if (a.detail != null || a.dueDate != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Text([if (a.dueDate != null) fmtDayShort(a.dueDate), ?a.detail].join(' · '), style: TextStyle(fontSize: 12.5, height: 1.4, color: c.textSubtle)),
+              ),
           ]),
         ),
-        Icon(PhosphorIconsRegular.caretRight, size: 16, color: c.textSubtle),
+        Padding(padding: const EdgeInsets.only(top: 10), child: Icon(PhosphorIconsRegular.caretRight, size: 16, color: c.textSubtle)),
       ]),
     );
   }
