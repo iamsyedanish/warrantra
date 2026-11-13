@@ -6,6 +6,8 @@ import '../features/account/domain/account.dart';
 import '../features/account/presentation/account_providers.dart';
 import '../features/auth/domain/auth_repository.dart';
 import '../features/auth/presentation/session_controller.dart';
+import '../features/capture/domain/capture.dart';
+import '../features/capture/presentation/capture_providers.dart';
 import '../features/cards/domain/cards.dart';
 import '../features/cards/presentation/cards_providers.dart';
 import '../features/claims/domain/claims.dart';
@@ -14,6 +16,10 @@ import '../features/home/domain/action_center.dart';
 import '../features/home/presentation/home_providers.dart';
 import '../features/items/domain/items.dart';
 import '../features/items/presentation/items_providers.dart';
+import '../features/household/domain/household.dart';
+import '../features/household/presentation/household_providers.dart';
+import '../features/maintenance/domain/maintenance.dart';
+import '../features/maintenance/presentation/maintenance_providers.dart';
 import '../features/settings/domain/settings.dart';
 import '../features/settings/presentation/settings_providers.dart';
 import '../features/vault/domain/vault.dart';
@@ -32,6 +38,9 @@ final demoOverrides = [
   claimsRepositoryProvider.overrideWithValue(_Claims()),
   cardsRepositoryProvider.overrideWithValue(_Cards()),
   settingsRepositoryProvider.overrideWithValue(_Settings()),
+  householdRepositoryProvider.overrideWithValue(_Household()),
+  maintenanceRepositoryProvider.overrideWithValue(_Maintenance()),
+  captureRepositoryProvider.overrideWithValue(_Capture()),
 ];
 
 /// Writes are accepted and ignored.
@@ -159,6 +168,8 @@ class _Vault with _NoWrites implements VaultRepository {
   Future<VaultDoc> get(String id) async => _docs.firstWhere((d) => d.id == id, orElse: () => _docs.first);
   @override
   Future<DocImpact> impact(String id) async => const DocImpact(items: [('airpods', 'AirPods Pro (2nd gen)')]);
+  @override
+  Future<String> url(String id, {int? previewWidth, bool download = false}) async => 'https://example.invalid/$id';
 }
 
 class _Claims with _NoWrites implements ClaimsRepository {
@@ -191,3 +202,74 @@ class _Settings with _NoWrites implements SettingsRepository {
   Future<List<SupportTicket>> tickets() async => const [];
 }
 
+
+class _Household with _NoWrites implements HouseholdRepository {
+  final _ws = const Workspace(
+    id: 'ws1',
+    kind: 'household',
+    name: 'Rivera home',
+    ownerId: 'demo-user',
+    members: [Member(userId: 'demo-user', role: 'owner', state: 'active', name: 'Alex Rivera'), Member(userId: 'u2', role: 'editor', state: 'active', name: 'Sam Rivera')],
+    items: [SharedItem(itemId: 'washer', name: 'LG front-load washer', brand: 'LG', model: 'WM4000HWA')],
+  );
+  @override
+  Future<List<Workspace>> list() async => [_ws];
+  @override
+  Future<Workspace> get(String id) async => _ws;
+  @override
+  Future<ForwardingAddress?> forwardingAddress() async => const ForwardingAddress('alex-7f3k2@in.warrantra.app', null);
+  @override
+  Future<List<InboundEmail>> inboundLog() async => [InboundEmail(id: 'e1', state: 'draft_created', attachments: 1, receivedAt: _d(-3), draftId: 'd1')];
+}
+
+class _Maintenance with _NoWrites implements MaintenanceRepository {
+  @override
+  Future<List<MaintenanceTask>> tasks({String? itemId}) async => [MaintenanceTask(id: 't1', title: 'Drum clean', itemId: 'washer', unit: 'month', interval: 3, nextDue: _d(9), basis: 'manufacturer_recommended')];
+  @override
+  Future<List<ServiceRecord>> records(String itemId) async => [ServiceRecord(id: 's1', date: _d(-50), type: 'installation', provider: 'Home Depot installer', cost: '0.00', currency: 'USD')];
+}
+
+class _Capture with _NoWrites implements CaptureRepository {
+  @override
+  Future<List<CaptureDraftSummary>> drafts() async => [CaptureDraftSummary(id: 'd1', source: 'email_forward', state: 'ready_for_review', title: 'Target order 9021-4471', scanJobId: 'scan1', createdAt: _d(-3))];
+  @override
+  Future<ScanJob> scan(String id) async => id == 'label1'
+      ? const ScanJob(
+          id: 'label1',
+          feature: 'product_label_extraction',
+          state: 'succeeded',
+          label: LabelDraft(
+            productName: DraftField(value: 'Sony WH-1000XM5 headphones', status: 'extracted'),
+            category: 'audio',
+            brand: DraftField(value: 'Sony', evidence: 'SONY', status: 'extracted'),
+            model: DraftField(value: 'WH-1000XM5', evidence: 'MODEL WH-1000XM5', status: 'extracted'),
+            serial: DraftField(value: '5512408', evidence: 'S/N 5512408', status: 'extracted'),
+            manufactureDate: DraftField(),
+            warnings: [],
+          ),
+        )
+      : ScanJob(
+          id: id,
+          feature: 'receipt_extraction',
+          state: 'succeeded',
+          receipt: ReceiptDraft(
+            merchant: const DraftField(value: "Lowe's", evidence: "LOWE'S #1842", status: 'extracted'),
+            purchaseDate: DraftField(value: _d(-1), evidence: '11/12/26', status: 'extracted'),
+            deliveryDate: const DraftField(),
+            orderNumber: const DraftField(value: '41872', evidence: 'TRANS 41872', status: 'extracted'),
+            currency: const DraftField(value: 'USD', status: 'extracted'),
+            subtotal: const DraftField(value: '306.98', status: 'extracted'),
+            tax: const DraftField(value: '22.26', status: 'extracted'),
+            shipping: const DraftField(),
+            discount: const DraftField(),
+            total: const DraftField(value: '329.24', evidence: 'TOTAL 329.24', status: 'extracted'),
+            lines: const [
+              DraftLine(index: 0, description: 'DEWALT 20V DRILL', quantity: 1, lineAmount: '129.00'),
+              DraftLine(index: 1, description: 'RING DOORBELL 4', quantity: 1, lineAmount: '177.98'),
+            ],
+            returnMentions: const [],
+            warrantyMentions: const [],
+            warnings: const ['delivery date: not found'],
+          ),
+        );
+}

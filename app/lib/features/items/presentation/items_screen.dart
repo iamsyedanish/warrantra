@@ -258,8 +258,8 @@ class ItemCard extends StatelessWidget {
           WProgressBar(progress),
           const SizedBox(height: 8),
           Row(children: [
-            Text(left == null ? '' : left < 0 ? 'Ended' : '$left days left', style: TextStyle(fontSize: 12.5, color: c.textSubtle)),
-            const Spacer(),
+            Expanded(child: Text(left == null ? '' : left < 0 ? 'Ended' : '$left days left', style: TextStyle(fontSize: 12.5, color: c.textSubtle))),
+            const SizedBox(width: 8),
             Text(fmtDate(item.nearestCoverageEnd), style: TextStyle(fontSize: 12.5, color: c.textSubtle)),
           ]),
         ] else if (!returnSoon && status != _coverageLine()) ...[

@@ -53,7 +53,11 @@ class PlanScreen extends ConsumerWidget {
             Widget usage(String title, String line, double v, String note) => Padding(
                   padding: const EdgeInsets.only(bottom: 14),
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Row(children: [Text(title, style: TextStyle(fontWeight: FontWeight.w500, color: c.text)), const Spacer(), Text(line, style: TextStyle(color: c.textMuted))]),
+                    Row(children: [
+                      Text(title, style: TextStyle(fontWeight: FontWeight.w500, color: c.text)),
+                      const SizedBox(width: 12),
+                      Expanded(child: Text(line, textAlign: TextAlign.right, style: TextStyle(color: c.textMuted))),
+                    ]),
                     const SizedBox(height: 6),
                     WProgressBar(v.clamp(0, 1).toDouble()),
                     const SizedBox(height: 4),
@@ -158,7 +162,7 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
       close: true,
       bottom: Column(mainAxisSize: MainAxisSize.min, children: [
         WButton(period == 'annual' ? 'Start Pro · $annualLabel/year' : 'Start Pro · $monthlyLabel/month', loading: busy, onPressed: () => _buy(pkgs)),
-        Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+        Wrap(alignment: WrapAlignment.center, children: [
           WButton.ghost('Restore', onPressed: () => _restore(context, ref)),
           WButton.ghost('Terms', onPressed: () => launchUrl(Uri.parse(AppConfig.termsUrl), mode: LaunchMode.externalApplication)),
           WButton.ghost('Privacy', onPressed: () => launchUrl(Uri.parse(AppConfig.privacyUrl), mode: LaunchMode.externalApplication)),
