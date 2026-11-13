@@ -145,9 +145,12 @@ runs typecheck, migrations, the OpenAPI drift check, all tests and the Docker bu
 - Project `warrantra` on the Dermaglobe Railway account, environment `production`.
 - `warrantra-api` (PROCESS_TYPE=api, public: https://warrantra-api-production.up.railway.app) and
   `warrantra-worker` (PROCESS_TYPE=worker), both built from `backend/Dockerfile`.
+- **Auto-deploy:** both services are connected to `iamsyedanish/warrantra` (`main`), root directory `/backend`,
+  and redeploy on every push that changes `backend/**` (frontend-only commits do not redeploy).
+- **Before pushing a change that adds a migration, run `npm run db:migrate` first**, so the new code never
+  starts against an old schema.
 - Copy variables from `.env` without printing them: `node scripts/railway-env.cjs <public-url>`.
-- Deploy the current code: `railway up --service warrantra-api --detach` and `railway up --service warrantra-worker --detach`.
-- Apply database migrations from your machine first: `npm run db:migrate`.
+- Manual deploy of local, uncommitted code (rarely needed): `railway up --service warrantra-api --detach`.
 
 ## Documents
 
