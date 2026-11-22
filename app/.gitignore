@@ -46,3 +46,7 @@ app.*.map.json
 
 # Widget Preview related
 .widget_preview/
+
+# Build config with keys (copy env/example.json to env/dev.json)
+/env/*.json
+!/env/example.json

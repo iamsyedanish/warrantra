@@ -1,0 +1,7 @@
+{
+  "API_BASE_URL": "https://warrantra-api-production.up.railway.app",
+  "GOOGLE_SERVER_CLIENT_ID": "",
+  "REVENUECAT_GOOGLE_KEY": "",
+  "REVENUECAT_APPLE_KEY": "",
+  "APPLE_SIGN_IN": "false"
+}

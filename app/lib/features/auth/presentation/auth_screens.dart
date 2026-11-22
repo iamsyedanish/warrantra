@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show TargetPlatform, defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -27,19 +28,27 @@ class SplashScreen extends StatelessWidget {
           gradient: RadialGradient(center: const Alignment(-1, -0.2), radius: 1.2, colors: [c.accentSoft, c.bg]),
         ),
         padding: const EdgeInsets.fromLTRB(32, 0, 32, 80),
-        child: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const WLogo(size: 72),
-          const SizedBox(height: 16),
-          Text('Warrantra', style: context.t.displaySmall),
-          const SizedBox(height: 8),
-          Text(_tagline, style: TextStyle(fontSize: 16, height: 1.5, color: c.textMuted)),
-          const SizedBox(height: 28),
-          Row(children: [
-            SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: c.accent)),
-            const SizedBox(width: 10),
-            Flexible(child: Text('Restoring your session', style: TextStyle(fontSize: 13, color: c.textSubtle))),
-          ]),
-        ]),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const WLogo(size: 72),
+            const SizedBox(height: 16),
+            Text('Warrantra', style: context.t.displaySmall),
+            const SizedBox(height: 8),
+            Text(_tagline, style: TextStyle(fontSize: 16, height: 1.5, color: c.textMuted)),
+            const SizedBox(height: 28),
+            Row(
+              children: [
+                SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: c.accent)),
+                const SizedBox(width: 10),
+                Flexible(
+                  child: Text('Restoring your session', style: TextStyle(fontSize: 13, color: c.textSubtle)),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -69,67 +78,103 @@ class _OnboardingState extends ConsumerState<OnboardingScreen> {
       _ObPage(
         title: 'Keep the proof.',
         body: 'Receipts, warranty cards and order PDFs in one private vault. One receipt can cover several things you bought.',
-        fragment: _Fragment(children: [
-          Text('One receipt · two items', style: TextStyle(fontSize: 12, color: c.textSubtle)),
-          const SizedBox(height: 8),
-          WListRow(icon: PhosphorIconsRegular.receipt, title: 'Home Depot order H8829-114', subtitle: 'PDF · 2 pages · stored once', caret: false, dense: true),
-          Row(children: [
-            WTag('LG washer', icon: PhosphorIconsRegular.washingMachine, kind: WTagKind.accent),
-            const SizedBox(width: 6),
-            WTag('LG dryer', icon: PhosphorIconsRegular.wind, kind: WTagKind.accent),
-          ]),
-        ]),
+        fragment: _Fragment(
+          children: [
+            Text('One receipt · two items', style: TextStyle(fontSize: 12, color: c.textSubtle)),
+            const SizedBox(height: 8),
+            WListRow(
+              icon: PhosphorIconsRegular.receipt,
+              title: 'Home Depot order H8829-114',
+              subtitle: 'PDF · 2 pages · stored once',
+              caret: false,
+              dense: true,
+            ),
+            Row(
+              children: [
+                WTag('LG washer', icon: PhosphorIconsRegular.washingMachine, kind: WTagKind.accent),
+                const SizedBox(width: 6),
+                WTag('LG dryer', icon: PhosphorIconsRegular.wind, kind: WTagKind.accent),
+              ],
+            ),
+          ],
+        ),
       ),
       _ObPage(
         title: 'Know the deadline.',
         body: 'Returns, registrations and coverage dates, each marked verified, estimated or unknown. Unknown stays unknown.',
-        fragment: _Fragment(children: [
-          _ObRow('Return · Sat, Nov 7', 'From Best Buy receipt', const CertBadge('user_confirmed', long: true)),
-          _ObRow('Warranty · Oct 23, 2027', '12 months from purchase', const CertBadge('estimated')),
-          _ObRow('Washer coverage', 'No terms found yet', const CertBadge('unknown')),
-        ]),
+        fragment: _Fragment(
+          children: [
+            _ObRow('Return · Sat, Nov 7', 'From Best Buy receipt', const CertBadge('user_confirmed', long: true)),
+            _ObRow('Warranty · Oct 23, 2027', '12 months from purchase', const CertBadge('estimated')),
+            _ObRow('Washer coverage', 'No terms found yet', const CertBadge('unknown')),
+          ],
+        ),
       ),
       _ObPage(
         title: 'Be ready when something goes wrong.',
         body: "Turn saved facts and proof into a claim pack. Warrantra isn't an insurer and can't guarantee a claim.",
-        fragment: _Fragment(children: [
-          Text('Claim pack', style: TextStyle(fontSize: 12, color: c.textSubtle)),
-          const SizedBox(height: 4),
-          Text('Samsung 65" QN90D · backlight flicker', style: TextStyle(fontWeight: FontWeight.w500, color: c.text)),
-          const SizedBox(height: 8),
-          for (final l in ['Product, model and serial', 'Receipt and coverage terms', 'Your photos and description'])
-            Padding(
-              padding: const EdgeInsets.only(bottom: 4),
-              child: Row(children: [Icon(PhosphorIconsBold.check, size: 14, color: c.accent), const SizedBox(width: 6), Text(l, style: TextStyle(color: c.textMuted, fontSize: 13.5))]),
+        fragment: _Fragment(
+          children: [
+            Text('Claim pack', style: TextStyle(fontSize: 12, color: c.textSubtle)),
+            const SizedBox(height: 4),
+            Text(
+              'Samsung 65" QN90D · backlight flicker',
+              style: TextStyle(fontWeight: FontWeight.w500, color: c.text),
             ),
-          const SizedBox(height: 4),
-          Text('You review it and send it to the provider.', style: TextStyle(fontSize: 12, color: c.textSubtle)),
-        ]),
+            const SizedBox(height: 8),
+            for (final l in ['Product, model and serial', 'Receipt and coverage terms', 'Your photos and description'])
+              Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Row(
+                  children: [
+                    Icon(PhosphorIconsBold.check, size: 14, color: c.accent),
+                    const SizedBox(width: 6),
+                    Text(l, style: TextStyle(color: c.textMuted, fontSize: 13.5)),
+                  ],
+                ),
+              ),
+            const SizedBox(height: 4),
+            Text('You review it and send it to the provider.', style: TextStyle(fontSize: 12, color: c.textSubtle)),
+          ],
+        ),
       ),
     ];
     return Scaffold(
       body: SafeArea(
-        child: Column(children: [
-          Align(alignment: Alignment.centerRight, child: Padding(padding: const EdgeInsets.all(8), child: WButton.ghost('Skip', onPressed: _finish))),
-          Expanded(
-            child: PageView(controller: _page, onPageChanged: (i) => setState(() => _i = i), children: pages),
-          ),
-          Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-            for (var d = 0; d < pages.length; d++)
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                margin: const EdgeInsets.symmetric(horizontal: 3),
-                width: d == _i ? 20 : 6,
-                height: 6,
-                decoration: BoxDecoration(color: d == _i ? c.accent : c.divider, borderRadius: BorderRadius.circular(3)),
+        child: Column(
+          children: [
+            Align(
+              alignment: Alignment.centerRight,
+              child: Padding(
+                padding: const EdgeInsets.all(8),
+                child: WButton.ghost('Skip', onPressed: _finish),
               ),
-          ]),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
-            child: WButton(_i == pages.length - 1 ? 'Start tracking purchases' : 'Next',
-                onPressed: () => _i == pages.length - 1 ? _finish() : _page.nextPage(duration: const Duration(milliseconds: 280), curve: Curves.easeOut)),
-          ),
-        ]),
+            ),
+            Expanded(
+              child: PageView(controller: _page, onPageChanged: (i) => setState(() => _i = i), children: pages),
+            ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                for (var d = 0; d < pages.length; d++)
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    margin: const EdgeInsets.symmetric(horizontal: 3),
+                    width: d == _i ? 20 : 6,
+                    height: 6,
+                    decoration: BoxDecoration(color: d == _i ? c.accent : c.divider, borderRadius: BorderRadius.circular(3)),
+                  ),
+              ],
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+              child: WButton(
+                _i == pages.length - 1 ? 'Start tracking purchases' : 'Next',
+                onPressed: () => _i == pages.length - 1 ? _finish() : _page.nextPage(duration: const Duration(milliseconds: 280), curve: Curves.easeOut),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -143,13 +188,17 @@ class _ObPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
-        fragment,
-        const SizedBox(height: 32),
-        Text(title, style: context.t.headlineMedium),
-        const SizedBox(height: 10),
-        Text(body, style: TextStyle(fontSize: 16, height: 1.5, color: context.w.textMuted)),
-      ]),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          fragment,
+          const SizedBox(height: 32),
+          Text(title, style: context.t.headlineMedium),
+          const SizedBox(height: 10),
+          Text(body, style: TextStyle(fontSize: 16, height: 1.5, color: context.w.textMuted)),
+        ],
+      ),
     );
   }
 }
@@ -158,7 +207,9 @@ class _Fragment extends StatelessWidget {
   const _Fragment({required this.children});
   final List<Widget> children;
   @override
-  Widget build(BuildContext context) => WCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: children));
+  Widget build(BuildContext context) => WCard(
+    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: children),
+  );
 }
 
 class _ObRow extends StatelessWidget {
@@ -167,20 +218,31 @@ class _ObRow extends StatelessWidget {
   final Widget badge;
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 6),
-        child: Row(children: [
-          Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(title, style: TextStyle(fontWeight: FontWeight.w500, color: context.w.text)),
+    padding: const EdgeInsets.symmetric(vertical: 6),
+    child: Row(
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: TextStyle(fontWeight: FontWeight.w500, color: context.w.text),
+              ),
               Text(sub, style: TextStyle(fontSize: 12.5, color: context.w.textMuted)),
-            ]),
+            ],
           ),
-          badge,
-        ]),
-      );
+        ),
+        badge,
+      ],
+    ),
+  );
 }
 
 // ---------------------------------------------------------------------------- sign in
+bool get _appleAvailable => AppConfig.appleSignInEnabled && defaultTargetPlatform == TargetPlatform.iOS;
+bool get _googleAvailable => AppConfig.googleServerClientId.isNotEmpty;
+
 class SignInScreen extends ConsumerStatefulWidget {
   const SignInScreen({super.key});
   @override
@@ -214,48 +276,88 @@ class _SignInState extends ConsumerState<SignInScreen> {
         const SizedBox(height: 20),
         const Align(alignment: Alignment.centerLeft, child: WLogo(size: 48)),
         const WHeading('Sign in', subtitle: 'Your purchases and documents stay private to your account.', large: true),
-        WButton.secondary('Continue with Apple', icon: PhosphorIconsFill.appleLogo, loading: _busy == 'apple',
-            onPressed: _busy != null ? null : () => _run('apple', () => repo.signInWithProvider(SocialProvider.apple))),
-        const SizedBox(height: 10),
-        WButton.secondary('Continue with Google', icon: PhosphorIconsBold.googleLogo, loading: _busy == 'google',
-            onPressed: _busy != null ? null : () => _run('google', () => repo.signInWithProvider(SocialProvider.google))),
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 18),
-          child: Row(children: [
-            Expanded(child: Divider(color: c.divider)),
-            Padding(padding: const EdgeInsets.symmetric(horizontal: 10), child: Text('or with email', style: TextStyle(fontSize: 12.5, color: c.textSubtle))),
-            Expanded(child: Divider(color: c.divider)),
-          ]),
-        ),
+        // Apple sign-in is native on iOS only; Google needs its client ID in env/dev.json.
+        if (_appleAvailable) ...[
+          WButton.secondary(
+            'Continue with Apple',
+            icon: PhosphorIconsFill.appleLogo,
+            loading: _busy == 'apple',
+            onPressed: _busy != null ? null : () => _run('apple', () => repo.signInWithProvider(SocialProvider.apple)),
+          ),
+          const SizedBox(height: 10),
+        ],
+        if (_googleAvailable)
+          WButton.secondary(
+            'Continue with Google',
+            icon: PhosphorIconsBold.googleLogo,
+            loading: _busy == 'google',
+            onPressed: _busy != null ? null : () => _run('google', () => repo.signInWithProvider(SocialProvider.google)),
+          ),
+        if (_appleAvailable || _googleAvailable)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 18),
+            child: Row(
+              children: [
+                Expanded(child: Divider(color: c.divider)),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  child: Text('or with email', style: TextStyle(fontSize: 12.5, color: c.textSubtle)),
+                ),
+                Expanded(child: Divider(color: c.divider)),
+              ],
+            ),
+          ),
         AutofillGroup(
-          child: Column(children: [
-            WField(label: 'Email', controller: _email, keyboardType: TextInputType.emailAddress, autofillHints: const [AutofillHints.email], textInputAction: TextInputAction.next),
-            WField(label: 'Password', controller: _password, obscure: true, autofillHints: const [AutofillHints.password]),
-          ]),
+          child: Column(
+            children: [
+              WField(
+                label: 'Email',
+                controller: _email,
+                keyboardType: TextInputType.emailAddress,
+                autofillHints: const [AutofillHints.email],
+                textInputAction: TextInputAction.next,
+              ),
+              WField(label: 'Password', controller: _password, obscure: true, autofillHints: const [AutofillHints.password]),
+            ],
+          ),
         ),
-        Align(alignment: Alignment.centerRight, child: WButton.ghost('Forgot password?', onPressed: () => context.push('/forgot'))),
+        Align(
+          alignment: Alignment.centerRight,
+          child: WButton.ghost('Forgot password?', onPressed: () => context.push('/forgot')),
+        ),
         const SizedBox(height: 8),
-        WButton('Sign in', loading: _busy == 'email', onPressed: _busy != null
-            ? null
-            : () {
-                if (_email.text.trim().isEmpty || _password.text.isEmpty) {
-                  showToast(context, 'Enter your email and password.');
-                  return;
-                }
-                if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(_email.text.trim())) {
-                  showToast(context, 'Enter a valid email address.');
-                  return;
-                }
-                _run('email', () => repo.signIn(email: _email.text.trim(), password: _password.text));
-              }),
+        WButton(
+          'Sign in',
+          loading: _busy == 'email',
+          onPressed: _busy != null
+              ? null
+              : () {
+                  if (_email.text.trim().isEmpty || _password.text.isEmpty) {
+                    showToast(context, 'Enter your email and password.');
+                    return;
+                  }
+                  if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(_email.text.trim())) {
+                    showToast(context, 'Enter a valid email address.');
+                    return;
+                  }
+                  _run('email', () => repo.signIn(email: _email.text.trim(), password: _password.text));
+                },
+        ),
         const SizedBox(height: 14),
-        Wrap(alignment: WrapAlignment.center, crossAxisAlignment: WrapCrossAlignment.center, children: [
-          Text('New to Warrantra?', style: TextStyle(color: c.textMuted)),
-          WButton.ghost('Create account', onPressed: () => context.push('/signup')),
-        ]),
+        Wrap(
+          alignment: WrapAlignment.center,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            Text('New to Warrantra?', style: TextStyle(color: c.textMuted)),
+            WButton.ghost('Create account', onPressed: () => context.push('/signup')),
+          ],
+        ),
         const SizedBox(height: 10),
-        Text('Accounts are never merged just because two sign-in methods share an email.',
-            textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: c.textSubtle)),
+        Text(
+          'Accounts are never merged just because two sign-in methods share an email.',
+          textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 12, color: c.textSubtle),
+        ),
       ],
     );
   }
@@ -301,15 +403,17 @@ class _SignUpState extends ConsumerState<SignUpScreen> {
   Widget build(BuildContext context) {
     final c = context.w;
     if (_checkEmail) {
-      return WScreen(children: [
-        const SizedBox(height: 40),
-        WEmpty(
-          icon: PhosphorIconsRegular.envelopeSimple,
-          title: 'Confirm your email',
-          message: 'We sent a confirmation link to ${_email.text.trim()}. Open it, then sign in.',
-          action: WButton.secondary('Back to sign in', onPressed: () => context.go('/signin'), expand: false),
-        ),
-      ]);
+      return WScreen(
+        children: [
+          const SizedBox(height: 40),
+          WEmpty(
+            icon: PhosphorIconsRegular.envelopeSimple,
+            title: 'Confirm your email',
+            message: 'We sent a confirmation link to ${_email.text.trim()}. Open it, then sign in.',
+            action: WButton.secondary('Back to sign in', onPressed: () => context.go('/signin'), expand: false),
+          ),
+        ],
+      );
     }
     return WScreen(
       children: [
@@ -351,32 +455,40 @@ class _ForgotState extends ConsumerState<ForgotPasswordScreen> {
   @override
   Widget build(BuildContext context) {
     if (_sent) {
-      return WScreen(children: [
-        const SizedBox(height: 40),
-        WEmpty(
-          icon: PhosphorIconsRegular.envelopeSimple,
-          title: 'Check your email',
-          message: 'If an account uses ${_email.text.trim()}, a reset link is on its way. It expires in 1 hour.',
-          action: WButton.secondary('Back to sign in', onPressed: () => context.go('/signin'), expand: false),
-        ),
-      ]);
+      return WScreen(
+        children: [
+          const SizedBox(height: 40),
+          WEmpty(
+            icon: PhosphorIconsRegular.envelopeSimple,
+            title: 'Check your email',
+            message: 'If an account uses ${_email.text.trim()}, a reset link is on its way. It expires in 1 hour.',
+            action: WButton.secondary('Back to sign in', onPressed: () => context.go('/signin'), expand: false),
+          ),
+        ],
+      );
     }
-    return WScreen(children: [
-      const WHeading('Reset password', subtitle: "We'll email a link to set a new password."),
-      WField(label: 'Email', controller: _email, keyboardType: TextInputType.emailAddress),
-      WButton('Send reset link', loading: _busy, onPressed: () async {
-        if (!_email.text.contains('@')) return showToast(context, 'Enter your email address.');
-        setState(() => _busy = true);
-        try {
-          await ref.read(authRepositoryProvider).sendPasswordReset(_email.text.trim());
-        } on Failure catch (f) {
-          if (f.isOffline && mounted) return showFailure(context, f);
-        } finally {
-          if (mounted) setState(() => _busy = false);
-        }
-        if (mounted) setState(() => _sent = true);
-      }),
-    ]);
+    return WScreen(
+      children: [
+        const WHeading('Reset password', subtitle: "We'll email a link to set a new password."),
+        WField(label: 'Email', controller: _email, keyboardType: TextInputType.emailAddress),
+        WButton(
+          'Send reset link',
+          loading: _busy,
+          onPressed: () async {
+            if (!_email.text.contains('@')) return showToast(context, 'Enter your email address.');
+            setState(() => _busy = true);
+            try {
+              await ref.read(authRepositoryProvider).sendPasswordReset(_email.text.trim());
+            } on Failure catch (f) {
+              if (f.isOffline && mounted) return showFailure(context, f);
+            } finally {
+              if (mounted) setState(() => _busy = false);
+            }
+            if (mounted) setState(() => _sent = true);
+          },
+        ),
+      ],
+    );
   }
 }
 
