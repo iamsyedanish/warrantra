@@ -144,7 +144,7 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
     final monthly = pkgs.where((p) => p.period == 'monthly').firstOrNull;
     final annualLabel = annual?.priceLabel ?? (offer?.annualPrice == null ? '\$79.99' : fmtMoney(offer!.annualPrice));
     final perMonth = annual?.pricePerMonthLabel ?? (offer?.annualPrice == null ? '\$6.67' : fmtMoney(offer!.annualPrice! / 12));
-    final monthlyLabel = monthly?.priceLabel ?? (offer?.monthlyPrice == null ? '\$19.99' : fmtMoney(offer!.monthlyPrice));
+    final monthlyLabel = monthly?.priceLabel ?? (offer?.monthlyPrice == null ? '\$7.99' : fmtMoney(offer!.monthlyPrice));
     Widget feature(IconData i, String t, String s) => Padding(
           padding: const EdgeInsets.only(bottom: 14),
           child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [

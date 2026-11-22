@@ -261,7 +261,7 @@ export const AdminController = {
     const b = parseOrThrow(z.object({
       annual_price: z.number().positive().optional(), monthly_price: z.number().positive().optional(), platform_fee: z.number().min(0).max(1).default(0.15),
     }).passthrough(), req.body ?? {}, 'body') as Record<string, number | undefined>;
-    const monthly = b.monthly_price ?? (b.annual_price ? b.annual_price / 12 : 169.99 / 12);
+    const monthly = b.monthly_price ?? (b.annual_price ? b.annual_price / 12 : 79.99 / 12);
     const overrides = Object.fromEntries(Object.entries(b).filter(([k]) => k in PLANNING_CASE)) as Partial<typeof PLANNING_CASE>;
     res.json(one({ inputs: { ...PLANNING_CASE, ...overrides, monthlyPrice: monthly, platformFee: b.platform_fee },
       result: computeProfit({ ...PLANNING_CASE, ...overrides, monthlyPrice: monthly, platformFee: b.platform_fee ?? 0.15 }),

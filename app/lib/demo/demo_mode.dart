@@ -74,7 +74,7 @@ class _Account with _NoWrites implements AccountRepository {
         usage: const Usage(itemsUsed: 6, itemsLimit: 10, storageUsed: 14 << 20, storageLimit: 100 << 20, aiUsed: 3, aiLimit: 5, aiPeriod: 'lifetime', additionsPaused: false),
       );
   @override
-  Future<PriceOffer> offer() async => const PriceOffer(annualPrice: 79.99, monthlyPrice: 19.99);
+  Future<PriceOffer> offer() async => const PriceOffer(annualPrice: 79.99, monthlyPrice: 7.99);
 }
 
 class _ActionCenter implements ActionCenterRepository {
