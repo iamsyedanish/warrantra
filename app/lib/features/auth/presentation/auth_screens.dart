@@ -242,6 +242,10 @@ class _SignInState extends ConsumerState<SignInScreen> {
                   showToast(context, 'Enter your email and password.');
                   return;
                 }
+                if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(_email.text.trim())) {
+                  showToast(context, 'Enter a valid email address.');
+                  return;
+                }
                 _run('email', () => repo.signIn(email: _email.text.trim(), password: _password.text));
               }),
         const SizedBox(height: 14),

@@ -231,6 +231,14 @@ describe('coverage normalisation', () => {
     expect(normalizeWarranty({ coverage_type: 'manufacturer', term_kind: 'lifetime', end_date: '2099-01-01' }).end_date).toBeNull();
     expect(normalizeReturnWindow({ window_days: 30, policy_anchor: 'delivery_date' }).terms_state).toBe('known');
   });
+  it('rejects "known" terms that have neither a window nor a deadline', () => {
+    expect(() => normalizeReturnWindow({ terms_state: 'known', date_certainty: 'user_confirmed', window_days: null, return_deadline: null }))
+      .toThrow(expect.objectContaining({ code: 'return_terms_incomplete' }));
+    // Unknown terms and status-only patches are still fine.
+    expect(() => normalizeReturnWindow({ terms_state: 'unknown' })).not.toThrow();
+    expect(() => normalizeReturnWindow({ return_state: 'shipped', rma_number: 'RMA-1' })).not.toThrow();
+    expect(() => normalizeReturnWindow({ terms_state: 'known', window_days: 0 })).not.toThrow();
+  });
 });
 
 describe('claim template', () => {
@@ -239,9 +247,17 @@ describe('claim template', () => {
       { product: { name: 'Dyson V15', brand: 'Dyson' }, purchase: { retailer: 'Target', price: '699.99', currency: 'USD' } },
       [{ filename: 'receipt.pdf', file_type: 'receipt' }]);
     expect(text).toContain('Serial number: Not recorded');
+    expect(text).not.toContain('SENT TO');
     expect(text).toContain('Stops after 2 minutes');
     expect(text).toMatch(/not an insurer, lawyer or manufacturer/);
     expect(text).not.toMatch(/you are entitled|guaranteed/i);
+  });
+  it('includes who the claim is sent to when the customer entered it', () => {
+    const text = renderClaimText({ claim_kind: 'warranty_repair', item_label: 'Drill', issue_description: 'Cuts out', issue_started_on: null,
+      provider_name: 'DEWALT', provider_contact: { phone: '1-800-433-9258' } }, { product: { name: 'Drill' }, coverage: { coverage_type: 'manufacturer', provider_name: null } }, []);
+    expect(text).toContain('Provider: DEWALT');
+    expect(text).toContain('Contact: 1-800-433-9258');
+    expect(text).toContain('Type: manufacturer  Provider: DEWALT');
   });
 });
 

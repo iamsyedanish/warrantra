@@ -85,7 +85,12 @@ class _CoverageSetupScreenState extends ConsumerState<CoverageSetupScreen> {
           });
         }
       }
+      // Invalidate each item's cached detail too, or the page we open next shows
+      // the pre-save state ("Coverage unknown", no return window).
       ref.refreshItems();
+      for (final id in choices.keys) {
+        ref.invalidate(itemDetailProvider(id));
+      }
       if (!mounted) return;
       showToast(context, 'Saved ${choices.length} item${choices.length == 1 ? '' : 's'}');
       if (choices.length == 1) {

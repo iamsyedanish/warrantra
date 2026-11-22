@@ -14,14 +14,30 @@ import '../../account/presentation/account_providers.dart';
 import '../domain/household.dart';
 import 'household_providers.dart';
 
-Future<String?> _ask(BuildContext context, String title, String label, {String? hint, TextInputType? type}) {
+Future<String?> _ask(BuildContext context, String title, String label, {String? hint, TextInputType? type, String? Function(String)? validate}) {
   final c = TextEditingController();
-  return showWSheet<String>(context, builder: (ctx) => Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Text(title, style: ctx.t.titleLarge),
-        const SizedBox(height: 10),
-        WField(label: label, controller: c, hint: hint, keyboardType: type),
-        WButton('Continue', onPressed: () => Navigator.pop(ctx, c.text.trim().isEmpty ? null : c.text.trim())),
-      ]));
+  String? error;
+  // Stay open with an inline error on empty input instead of closing silently.
+  return showWSheet<String>(context, builder: (ctx) => StatefulBuilder(
+        builder: (ctx, set) => Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Text(title, style: ctx.t.titleLarge),
+          const SizedBox(height: 10),
+          WField(
+            label: label,
+            controller: c,
+            hint: hint,
+            keyboardType: type,
+            error: error,
+            onChanged: (_) => error != null ? set(() => error = null) : null,
+          ),
+          WButton('Continue', onPressed: () {
+            final v = c.text.trim();
+            final problem = v.isEmpty ? 'Enter a ${label.toLowerCase()} to continue.' : validate?.call(v);
+            if (problem != null) return set(() => error = problem);
+            Navigator.pop(ctx, v);
+          }),
+        ]),
+      ));
 }
 
 String roleLabel(String r) => switch (r) { 'owner' => 'Owner', 'admin' => 'Admin', 'editor' => 'Adds and edits', 'viewer' => 'Views only', _ => titleCase(r) };
@@ -83,7 +99,7 @@ class HouseholdScreen extends ConsumerWidget {
                 ),
               ]);
             }
-            return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [for (final w in ws) _WorkspaceView(id: w.id, shareItemId: shareItemId, myId: me?.profile.id)]);
+            return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [for (final w in ws) _WorkspaceView(id: w.id, shareItemId: shareItemId, myId: me?.profile.id, myName: me?.profile.name)]);
           },
         ),
         const SizedBox(height: 10),
@@ -94,9 +110,12 @@ class HouseholdScreen extends ConsumerWidget {
 }
 
 class _WorkspaceView extends ConsumerWidget {
-  const _WorkspaceView({required this.id, this.shareItemId, this.myId});
+  const _WorkspaceView({required this.id, this.shareItemId, this.myId, this.myName});
   final String id;
   final String? shareItemId, myId;
+
+  /// Shown for your own row when your profile has no display name.
+  final String? myName;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -134,8 +153,8 @@ class _WorkspaceView extends ConsumerWidget {
           const WSectionHeader('Members'),
           for (final m in w.members.where((m) => m.state != 'revoked'))
             WListRow(
-              leading: WAvatar(m.name ?? '?', size: 36),
-              title: '${m.name ?? 'Member'}${m.userId == myId ? ' (you)' : ''}',
+              leading: WAvatar((m.userId == myId ? (m.name ?? myName) : m.name) ?? '?', size: 36),
+              title: '${(m.userId == myId ? (m.name ?? myName) : m.name) ?? 'Member'}${m.userId == myId ? ' (you)' : ''}',
               subtitle: '${roleLabel(m.role)}${m.joinedAt == null ? '' : ' · joined ${fmtDate(m.joinedAt)}'}',
               caret: false,
               trailing: mine && m.userId != myId
@@ -149,7 +168,8 @@ class _WorkspaceView extends ConsumerWidget {
             ),
           if (mine)
             WButton.secondary('Invite a member', icon: PhosphorIconsRegular.userPlus, onPressed: () async {
-              final email = await _ask(context, 'Invite a member', 'Email', type: TextInputType.emailAddress);
+              final email = await _ask(context, 'Invite a member', 'Email', type: TextInputType.emailAddress,
+                  validate: (v) => RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(v) ? null : 'Enter a valid email address.');
               if (email != null) await act(() => repo.invite(w.id, email: email, role: 'editor'), 'Invitation sent');
             })
           else

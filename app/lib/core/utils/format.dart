@@ -67,6 +67,25 @@ String? normalizeMoney(String input) {
   return '${parts[0]}.${(parts.length > 1 ? parts[1] : '').padRight(2, '0')}';
 }
 
+/// Last covered day of a duration-based term. Mirrors the server
+/// (backend/src/lib/dates.ts durationEndDate): add calendar months with
+/// month-end clamping (Jan 31 + 1 month = Feb 28/29), then step back one day.
+DateTime durationEndDate(DateTime start, int months) {
+  final target = start.month - 1 + months;
+  final y = start.year + (target ~/ 12);
+  final m = target % 12 + 1;
+  final lastDay = DateTime(y, m + 1, 0).day;
+  final anniversary = DateTime(y, m, start.day > lastDay ? lastDay : start.day);
+  return anniversary.subtract(const Duration(days: 1));
+}
+
+/// True when the user typed something into a money field that can't be saved
+/// (letters, a minus sign, more than 2 decimals). Empty is fine (= unknown).
+/// Forms must block on this instead of silently dropping the value.
+bool isBadMoney(String input) => input.trim().isNotEmpty && normalizeMoney(input) == null;
+
+const badMoneyMessage = 'Use numbers only, like 749.99';
+
 String fmtBytes(num? bytes) {
   if (bytes == null) return '—';
   if (bytes < 1024) return '$bytes B';

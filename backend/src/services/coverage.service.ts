@@ -38,6 +38,11 @@ export function normalizeWarranty(input: Partial<z.infer<typeof WarrantyInput>>,
 
 export function normalizeReturnWindow(input: Partial<z.infer<typeof ReturnWindowInput>>): Row {
   const { confirm, accept_estimate, ...rest } = input;
+  // "Known" terms with neither a window nor a deadline would display as
+  // confirmed while giving the user no date at all (spec §4: unknown must stay unknown).
+  if (rest.terms_state === 'known' && rest.window_days == null && !rest.return_deadline) {
+    throw unprocessable('return_terms_incomplete', 'Add the number of days or the deadline date, or mark the return terms as unknown.');
+  }
   const out: Row = { ...rest };
   if (rest.return_deadline && !rest.policy_anchor && rest.window_days == null) {
     out.policy_anchor = rest.anchor_date ? 'custom' : 'unknown';

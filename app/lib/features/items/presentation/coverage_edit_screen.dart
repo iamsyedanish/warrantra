@@ -71,8 +71,7 @@ class _CoverageFormState extends ConsumerState<_CoverageForm> {
     final a = _anchorDate;
     final m = int.tryParse(months.text);
     if (a == null || m == null) return null;
-    final lastDay = DateTime(a.year, a.month + m + 1, 0).day;
-    return DateTime(a.year, a.month + m, a.day > lastDay ? lastDay : a.day);
+    return durationEndDate(a, m);
   }
 
   String get _reminderLine {

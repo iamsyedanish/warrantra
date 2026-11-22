@@ -116,7 +116,8 @@ class SettingsScreen extends ConsumerWidget {
                         WListRow(
                           icon: PhosphorIconsRegular.trophy,
                           title: 'Outcomes',
-                          subtitle: '${outcomes?.length ?? 0} confirmed',
+                          // Don't flash "0 confirmed" while the list is still loading.
+                          subtitle: outcomes == null ? '…' : '${outcomes.length} confirmed',
                           onTap: () => context.push('/outcomes'),
                         ),
                         WListRow(icon: PhosphorIconsRegular.chatCircleText, title: 'Claims', onTap: () => context.push('/claims')),

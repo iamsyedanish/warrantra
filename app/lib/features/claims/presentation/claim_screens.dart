@@ -104,7 +104,7 @@ class _ClaimPackScreenState extends ConsumerState<ClaimPackScreen> {
             const SizedBox(height: 12),
             WButton.secondary('Save PDF', icon: PhosphorIconsRegular.filePdf, loading: busy, onPressed: () => _run(() async {
                   final p = await ref.read(claimsRepositoryProvider).generatePack(cl.id, format: 'pdf');
-                  if (p.url != null) await launchUrl(Uri.parse(p.url!), mode: LaunchMode.externalApplication);
+                  if (p.url != null) await launchUrl(Uri.parse(p.url!), mode: LaunchMode.inAppBrowserView);
                 })),
             const SizedBox(height: 8),
             WButton.secondary('Copy text', icon: PhosphorIconsRegular.copy, onPressed: () => _run(() async {
@@ -163,7 +163,7 @@ class ClaimDetailScreen extends ConsumerWidget {
               onChanged: (v) => set(() => status = v),
             ),
             const SizedBox(height: 10),
-            WDateField(label: 'Follow up on', value: follow, onChanged: (v) => set(() => follow = v)),
+            WDateField(notBeforeToday: true, label: 'Follow up on', value: follow, onChanged: (v) => set(() => follow = v)),
             WButton('Save', onPressed: () => Navigator.pop(ctx, true)),
           ]),
         ));
@@ -172,6 +172,7 @@ class ClaimDetailScreen extends ConsumerWidget {
       await ref.read(claimsRepositoryProvider).update(cl.id, {'claim_number': number.text.trim().isEmpty ? null : number.text.trim(), 'status': status, 'follow_up_on': isoDate(follow)}, version: cl.version);
       ref.invalidate(claimProvider(cl.id));
       ref.invalidate(claimsProvider);
+      if (context.mounted) showToast(context, 'Claim updated');
     } catch (e) {
       if (context.mounted) showFailure(context, e);
     }
@@ -228,7 +229,7 @@ class ClaimDetailScreen extends ConsumerWidget {
                 style: TextStyle(fontSize: 12.5, color: c.textSubtle, height: 1.4)),
             if (cl.reviewedFacts != null) ...[
               const WSectionHeader('Facts in the pack'),
-              FactsCard(facts: cl.reviewedFacts!, issue: cl.issue, startedOn: cl.issueStartedOn),
+              FactsCard(facts: cl.reviewedFacts!, issue: cl.issue, startedOn: cl.issueStartedOn, providerName: cl.providerName, providerContact: cl.providerContact),
             ],
             if (cl.providerContact.isNotEmpty) ...[
               const WSectionHeader('Provider contact'),
@@ -293,8 +294,11 @@ class ClaimsListScreen extends ConsumerWidget {
 // Outcome form & ledger
 // ---------------------------------------------------------------------------
 class OutcomeFormScreen extends ConsumerStatefulWidget {
-  const OutcomeFormScreen({super.key, this.claimId, this.returnId});
+  const OutcomeFormScreen({super.key, this.claimId, this.returnId, this.paid});
   final String? claimId, returnId;
+
+  /// What the item cost, when known; used to sanity-check reported refunds.
+  final num? paid;
   @override
   ConsumerState<OutcomeFormScreen> createState() => _OutcomeFormScreenState();
 }
@@ -311,6 +315,19 @@ class _OutcomeFormScreenState extends ConsumerState<OutcomeFormScreen> {
   bool get hasAmount => type == 'refund_received';
 
   Future<void> _save() async {
+    if (hasAmount && isBadMoney(amount.text)) return showToast(context, badMoneyMessage);
+    final refund = hasAmount ? num.tryParse(normalizeMoney(amount.text) ?? '') : null;
+    final paid = widget.paid;
+    if (refund != null && paid != null && paid > 0 && refund > paid) {
+      final cur = ref.read(meProvider).value?.profile.currency ?? 'USD';
+      // Spec §9: don't inflate outcomes. Tax/shipping can push a refund above the
+      // line price, so ask rather than block.
+      final ok = await confirmDialog(context,
+          title: 'More than you paid?',
+          message: 'You entered ${fmtMoney(refund, currency: cur)} but this item cost ${fmtMoney(paid, currency: cur)}. Record only what you actually received, including tax or shipping refunds.',
+          confirm: 'Record ${fmtMoney(refund, currency: cur)}');
+      if (!ok || !mounted) return;
+    }
     setState(() => saving = true);
     final me = ref.read(meProvider).value;
     try {
@@ -362,7 +379,7 @@ class _OutcomeFormScreenState extends ConsumerState<OutcomeFormScreen> {
         ),
         const SizedBox(height: 12),
         if (hasAmount) WField(label: 'Amount received ($cur)', controller: amount, hint: '0.00', keyboardType: const TextInputType.numberWithOptions(decimal: true)),
-        WDateField(label: 'Date', value: date, onChanged: (v) => setState(() => date = v), allowClear: false),
+        WDateField(notAfterToday: true, label: 'Date', value: date, onChanged: (v) => setState(() => date = v), allowClear: false),
         WChoiceChips<String>(
           label: 'Evidence',
           options: const [('user_reported', 'My word'), ('document_attached', 'I have a document'), ('provider_confirmation', 'Provider confirmed')],

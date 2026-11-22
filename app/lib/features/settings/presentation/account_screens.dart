@@ -16,7 +16,9 @@ import '../../../core/widgets/buttons.dart';
 import '../../../core/widgets/display.dart';
 import '../../../core/widgets/inputs.dart';
 import '../../../core/widgets/scaffold.dart';
+import '../../../core/errors/failure.dart';
 import '../../account/presentation/account_providers.dart';
+import '../../auth/presentation/session_controller.dart';
 import '../../home/domain/action_center.dart';
 import '../../home/presentation/home_providers.dart';
 import '../domain/settings.dart';
@@ -131,7 +133,7 @@ class _DeleteAccountScreenState extends ConsumerState<DeleteAccountScreen> {
   Future<void> _go() async {
     setState(() => busy = true);
     final repo = ref.read(settingsRepositoryProvider);
-    try {
+    Future<void> attempt() async {
       if (step == 0) {
         await repo.requestDeletion();
         setState(() => step = 1);
@@ -140,10 +142,46 @@ class _DeleteAccountScreenState extends ConsumerState<DeleteAccountScreen> {
         setState(() => step = 2);
         ref.invalidate(deletionStatusProvider);
       }
+    }
+
+    try {
+      try {
+        await attempt();
+      } on Failure catch (e) {
+        // The server wants proof of a recent sign-in (spec §6). Ask for the
+        // password, sign in again, then retry once.
+        if (e.code != 'reauthentication_required' || !mounted) rethrow;
+        if (!await _reauthenticate()) return;
+        await attempt();
+      }
     } catch (e) {
       if (mounted) showFailure(context, e);
     } finally {
       if (mounted) setState(() => busy = false);
+    }
+  }
+
+  /// Re-enter the password for the signed-in email. Returns true on success.
+  Future<bool> _reauthenticate() async {
+    final email = ref.read(meProvider).value?.profile.email ?? '';
+    final pw = TextEditingController();
+    final ok = await showWSheet<bool>(context, builder: (ctx) => Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Text('Confirm it’s you', style: ctx.t.titleLarge),
+          const SizedBox(height: 6),
+          Text('For your security, enter your password for $email to delete this account. '
+              'If you use Apple or Google sign-in, sign out and sign back in instead.',
+              style: TextStyle(fontSize: 14, height: 1.4, color: ctx.w.textMuted)),
+          const SizedBox(height: 10),
+          WField(label: 'Password', controller: pw, obscure: true),
+          WButton('Continue', onPressed: () => Navigator.pop(ctx, true)),
+        ]));
+    if (ok != true || pw.text.isEmpty || !mounted) return false;
+    try {
+      await ref.read(authRepositoryProvider).signIn(email: email, password: pw.text);
+      return true;
+    } catch (e) {
+      if (mounted) showFailure(context, e);
+      return false;
     }
   }
 

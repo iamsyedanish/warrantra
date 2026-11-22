@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 
-import '../../../core/errors/failure.dart';
 import '../../../core/network/api_client.dart';
+import '../../../core/router/app_router.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/widgets/buttons.dart';
 import '../../../core/widgets/display.dart';
@@ -13,6 +14,7 @@ import '../../account/domain/account.dart';
 import '../../account/presentation/account_providers.dart';
 import '../domain/capture.dart';
 import 'capture_providers.dart';
+import 'capture_screens.dart' show PendingScan;
 import 'upload_flow.dart';
 
 enum CaptureMode { scanReceipt, upload, manual, productLabel }
@@ -151,31 +153,47 @@ Future<void> pickUploadAndScan(BuildContext context, ProviderContainer container
     if (context.mounted) showUploadIssue(context, e);
     return;
   }
-  if (f == null || !context.mounted) return;
-  final up = await _upload(context, container, f, label ? 'product_photo' : 'receipt');
-  if (up == null || !context.mounted) return;
-  final heic = f.mime == 'image/heic' || f.mime == 'image/heif';
-  if (!aiAllowed || heic) {
-    if (heic && aiAllowed) showToast(context, 'HEIC photos are stored but not read by AI. Enter the details below.');
-    context.push('/capture/manual?attachment=${up.attachmentId}');
-    return;
-  }
-  try {
-    final job = await container.read(captureRepositoryProvider).startScan(
-          attachmentId: up.attachmentId,
-          feature: label ? 'product_label_extraction' : 'receipt_extraction',
-          idempotencyKey: ApiClient.newIdempotencyKey(),
-        );
-    if (context.mounted) context.push('/capture/scan/${job.id}?attachment=${up.attachmentId}');
-  } on Failure catch (e) {
-    if (!context.mounted) return;
-    if (e.isQuota || e.code.startsWith('ai_')) {
-      context.push('/capture/ai-limit?mode=${mode.name}&attachment=${up.attachmentId}&reason=${e.code}');
-    } else {
-      showFailure(context, e);
-      context.push('/capture/manual?attachment=${up.attachmentId}');
+  if (f == null && source == PickSource.camera && context.mounted) {
+    // No photo came back: either the user cancelled or camera access is off.
+    // Don't just vanish; offer the photo library or the Settings switch.
+    final next = await showWSheet<String>(context, builder: (ctx) => Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Text('No photo taken', style: ctx.t.titleLarge),
+          const SizedBox(height: 6),
+          Text('If camera access is off for Warrantra, turn it on in Settings, or pick a photo you already have.',
+              style: TextStyle(fontSize: 14, height: 1.4, color: ctx.w.textMuted)),
+          const SizedBox(height: 8),
+          WListRow(icon: PhosphorIconsRegular.image, title: 'Choose from photos', onTap: () => Navigator.pop(ctx, 'gallery')),
+          WListRow(icon: PhosphorIconsRegular.gear, title: 'Open Settings', onTap: () => Navigator.pop(ctx, 'settings')),
+        ]));
+    if (next == 'settings') {
+      await launchUrl(Uri.parse('app-settings:'));
+      return;
+    }
+    if (next != 'gallery' || !context.mounted) return;
+    try {
+      f = await pickFile(PickSource.gallery);
+    } catch (e) {
+      if (context.mounted) showUploadIssue(context, e);
+      return;
     }
   }
+  if (f == null || !context.mounted) return;
+  final heic = f.mime == 'image/heic' || f.mime == 'image/heif';
+  if (aiAllowed && !heic) {
+    // Open the progress page right away; it uploads, then starts the AI read,
+    // showing each step (no blocking "Uploading…" dialog).
+    final nav = rootNavigatorKey.currentContext ?? context;
+    if (!nav.mounted) return;
+    nav.push('/capture/scan/new',
+        extra: PendingScan(file: f, fileType: label ? 'product_photo' : 'receipt', feature: label ? 'product_label_extraction' : 'receipt_extraction', mode: mode));
+    return;
+  }
+  final up = await _upload(context, container, f, label ? 'product_photo' : 'receipt');
+  // The picker and upload are long async gaps; navigate from the root navigator.
+  final nav = rootNavigatorKey.currentContext ?? context;
+  if (up == null || !nav.mounted) return;
+  if (heic && aiAllowed) showToast(nav, 'HEIC photos are stored but not read by AI. Enter the details below.');
+  nav.push('/capture/manual?attachment=${up.attachmentId}');
 }
 
 Future<UploadedFile?> _upload(BuildContext context, ProviderContainer container, PickedFile f, String type) async {

@@ -146,7 +146,7 @@ class _Body extends ConsumerWidget {
       if (d.orderNumber != null) _FactRow('Order', d.orderNumber!),
       _FactRow('Purchased', fmtDate(s.purchaseDate, empty: 'Unknown')),
       if (d.deliveryDate != null) _FactRow('Delivered', fmtDate(d.deliveryDate)),
-      if (s.price != null) _FactRow('Price', fmtMoney(s.price, currency: s.currency), note: d.priceIsEstimated ? 'Estimated share of a multi-item receipt' : 'Line amount'),
+      if (s.price != null) _FactRow('Price', fmtMoney(s.price, currency: s.currency), note: d.priceIsEstimated ? 'Line price plus its estimated share of tax, shipping and discounts' : 'Line amount'),
       _SerialRow(serial: d.serial),
       if (d.quantity > 1) _FactRow('Quantity', '${d.quantity}'),
       _FactRow('Condition', titleCase(d.condition)),

@@ -78,9 +78,15 @@ class WField extends StatelessWidget {
 
 /// Date picker field showing a formatted date (ISO value in the controller).
 class WDateField extends StatelessWidget {
-  const WDateField({super.key, required this.label, required this.value, required this.onChanged, this.hint = 'Not set', this.helper, this.allowClear = true});
+  const WDateField({super.key, required this.label, required this.value, required this.onChanged, this.hint = 'Not set', this.helper, this.allowClear = true, this.notAfterToday = false, this.notBeforeToday = false});
   final String label;
   final DateTime? value;
+
+  /// For things that already happened (purchase, issue started, refund received).
+  final bool notAfterToday;
+
+  /// For reminders and deadlines you set going forward.
+  final bool notBeforeToday;
   final ValueChanged<DateTime?> onChanged;
   final String hint;
   final String? helper;
@@ -104,7 +110,13 @@ class WDateField extends StatelessWidget {
           : Icon(PhosphorIconsRegular.calendarBlank, size: 18, color: c.textSubtle),
       onTap: () async {
         final now = DateTime.now();
-        final picked = await showDatePicker(context: context, initialDate: value ?? now, firstDate: DateTime(1990), lastDate: DateTime(now.year + 15));
+        final today = DateTime(now.year, now.month, now.day);
+        final first = notBeforeToday ? today : DateTime(1990);
+        final last = notAfterToday ? today : DateTime(now.year + 15);
+        var initial = value ?? today;
+        if (initial.isBefore(first)) initial = first;
+        if (initial.isAfter(last)) initial = last;
+        final picked = await showDatePicker(context: context, initialDate: initial, firstDate: first, lastDate: last);
         if (picked != null) onChanged(picked);
       },
     );

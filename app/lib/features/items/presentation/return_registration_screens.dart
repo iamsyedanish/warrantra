@@ -81,7 +81,7 @@ class _ReturnTrackState extends ConsumerState<_ReturnTrack> {
           message: 'Mark the item as returned and record the refund amount in Outcomes?',
           confirm: 'Record outcome',
           icon: PhosphorIconsRegular.checkCircle);
-      if (record && mounted) context.push('/outcomes/new?return=${r.id}');
+      if (record && mounted) context.push('/outcomes/new?return=${r.id}${widget.item.summary.price != null ? '&paid=${widget.item.summary.price}' : ''}');
     }
   }
 
@@ -236,6 +236,17 @@ class _ReturnFormState extends ConsumerState<_ReturnForm> {
   }
 
   Future<void> _save() async {
+    // Known terms need an actual window; otherwise the row claims "confirmed"
+    // while having no deadline at all. Point the user to "Unknown" instead.
+    if (mode == 'days') {
+      final n = int.tryParse(days.text.trim());
+      if (n == null || n < 0 || n > 730) {
+        return showToast(context, 'Enter the number of days (e.g. 15), or choose Unknown.');
+      }
+    }
+    if (mode == 'date' && deadline == null) {
+      return showToast(context, 'Pick the deadline date, or choose Unknown.');
+    }
     setState(() => saving = true);
     final body = <String, dynamic>{
       'retailer_name': retailer.text.trim().isEmpty ? null : retailer.text.trim(),
@@ -247,7 +258,8 @@ class _ReturnFormState extends ConsumerState<_ReturnForm> {
       'deadline_basis': basis,
       'date_certainty': mode == 'unknown' ? 'unknown' : certainty,
       if (certainty == 'estimated') 'accept_estimate': true,
-      'source_kind': 'user_entry',
+      // "Receipt or policy" means the user read it from a document; record that source.
+      'source_kind': mode != 'unknown' && certainty == 'document_verified' ? 'receipt' : 'user_entry',
     };
     try {
       final repo = ref.read(itemsRepositoryProvider);
@@ -431,7 +443,7 @@ class _RegistrationState extends ConsumerState<_Registration> {
         const SizedBox(height: 12),
         WField(label: 'Provider', controller: provider),
         WField(label: 'Registration link', controller: url, keyboardType: TextInputType.url, hint: 'https://', onChanged: (_) => setState(() {})),
-        WDateField(label: 'Remind me by', value: deadline, onChanged: (v) => setState(() => deadline = v)),
+        WDateField(notBeforeToday: true, label: 'Remind me by', value: deadline, onChanged: (v) => setState(() => deadline = v)),
         WField(label: 'Confirmation number', controller: reference, hint: 'Optional'),
         WKeyValue('Serial needed', serial == null ? 'Not recorded' : '${serial.substring(0, serial.length.clamp(0, 4))}${'•' * (serial.length - 4).clamp(0, 12)}'),
         if (g != null && !done) ...[

@@ -224,6 +224,7 @@ class DocViewerScreen extends ConsumerWidget {
       final role = switch (d.fileType) { 'receipt' || 'warranty_card' || 'manual' || 'product_photo' || 'registration' => d.fileType, _ => 'document' };
       await ref.read(captureRepositoryProvider).linkToItem(d.id, picked.id, role: role);
       ref.invalidate(docImpactProvider(d.id));
+      ref.invalidate(vaultDocProvider(d.id)); // the open viewer's "Linked to" list
       ref.invalidate(vaultProvider);
       ref.refreshItems(itemId: picked.id);
       if (context.mounted) showToast(context, 'Linked to ${picked.name}');
@@ -274,7 +275,7 @@ class DocViewerScreen extends ConsumerWidget {
               for (final (iid, n) in impact.items) WListRow(icon: PhosphorIconsRegular.package, title: n, onTap: () => context.push('/items/$iid')),
               for (final (cid, n) in impact.claims) WListRow(icon: PhosphorIconsRegular.chatCircleText, title: 'Claim · $n', onTap: () => context.push('/claims/$cid')),
             ],
-            if (!d.held) Align(alignment: Alignment.centerLeft, child: WButton.ghost('Link to another item', icon: PhosphorIconsRegular.linkSimple, onPressed: () => _linkItem(context, ref, d))),
+            if (!d.held) Align(alignment: Alignment.centerLeft, child: WButton.ghost(impact?.linked == true ? 'Link to another item' : 'Link to an item', icon: PhosphorIconsRegular.linkSimple, onPressed: () => _linkItem(context, ref, d))),
           ],
         );
       },
@@ -292,8 +293,15 @@ class _Preview extends ConsumerWidget {
     if (!doc.isImage || heic) {
       return WCard(
         onTap: () async {
-          final url = await ref.read(vaultRepositoryProvider).url(doc.id);
-          await launchUrl(Uri.parse(url), mode: LaunchMode.inAppBrowserView);
+          // Fetching the short-lived signed link takes a moment; say so, and
+          // surface failures instead of a silent no-op.
+          showToast(context, 'Opening…');
+          try {
+            final url = await ref.read(vaultRepositoryProvider).url(doc.id);
+            await launchUrl(Uri.parse(url), mode: LaunchMode.inAppBrowserView);
+          } catch (e) {
+            if (context.mounted) showFailure(context, e);
+          }
         },
         child: SizedBox(
           height: 160,

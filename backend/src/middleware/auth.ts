@@ -37,9 +37,13 @@ export async function optionalAuth(req: Request, res: Response, next: NextFuncti
  * a recent sign-in. The client re-authenticates and sends the fresh token.
  */
 export function requireRecentAuth(req: Request, _res: Response, next: NextFunction): void {
-  const iat = Number(req.auth?.claims.iat ?? 0);
-  const ageSeconds = Math.floor(Date.now() / 1000) - iat;
-  if (!iat || ageSeconds > env().REAUTH_MAX_AGE_SECONDS) {
+  // `iat` is renewed on every token refresh, so it says nothing about when the
+  // user last proved who they are. Supabase records the real sign-in time in
+  // `amr[].timestamp` (kept across refreshes); use the most recent one.
+  const amr = (req.auth?.claims as { amr?: Array<{ timestamp?: number }> } | undefined)?.amr;
+  const signedInAt = Array.isArray(amr) ? Math.max(0, ...amr.map((m) => Number(m?.timestamp ?? 0))) : 0;
+  const ageSeconds = Math.floor(Date.now() / 1000) - signedInAt;
+  if (!signedInAt || ageSeconds > env().REAUTH_MAX_AGE_SECONDS) {
     return next(forbidden('reauthentication_required', 'Please sign in again to continue'));
   }
   next();

@@ -8,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/config/app_config.dart';
 import '../../../core/errors/failure.dart';
+import '../../../core/network/api_client.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/widgets/buttons.dart';
@@ -17,6 +18,7 @@ import '../../account/presentation/account_providers.dart';
 import '../domain/capture.dart';
 import 'add_sheet.dart';
 import 'capture_providers.dart';
+import 'upload_flow.dart';
 
 CaptureMode _mode(String? m) => CaptureMode.values.firstWhere((e) => e.name == m, orElse: () => CaptureMode.scanReceipt);
 
@@ -176,10 +178,21 @@ class UploadIssueScreen extends StatelessWidget {
 }
 
 /// Polls a scan until it settles, showing the prototype's step list.
+/// A picked file that still has to be uploaded before the AI read starts.
+/// Passed to [ProcessingScreen] so progress shows on one page from the first
+/// second, instead of a blocking "Uploading…" dialog.
+class PendingScan {
+  const PendingScan({required this.file, required this.fileType, required this.feature, required this.mode});
+  final PickedFile file;
+  final String fileType, feature;
+  final CaptureMode mode;
+}
+
 class ProcessingScreen extends ConsumerStatefulWidget {
-  const ProcessingScreen({super.key, required this.scanId, this.attachmentId});
+  const ProcessingScreen({super.key, required this.scanId, this.attachmentId, this.pending});
   final String scanId;
   final String? attachmentId;
+  final PendingScan? pending;
   @override
   ConsumerState<ProcessingScreen> createState() => _ProcessingScreenState();
 }
@@ -189,12 +202,49 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
   int _tick = 0;
   ScanJob? _job;
   bool _stopped = false;
+  late String? _scanId = widget.pending == null ? widget.scanId : null;
+  late String? _attachmentId = widget.attachmentId;
+  bool get _uploading => _scanId == null;
 
   @override
   void initState() {
     super.initState();
+    if (widget.pending != null) {
+      _uploadThenScan(widget.pending!);
+    } else {
+      _startPolling();
+    }
+  }
+
+  void _startPolling() {
     _poll();
     _timer = Timer.periodic(const Duration(seconds: 2), (_) => _poll());
+  }
+
+  Future<void> _uploadThenScan(PendingScan p) async {
+    final repo = ref.read(captureRepositoryProvider);
+    try {
+      final up = await repo.upload(bytes: p.file.bytes, filename: p.file.name, mime: p.file.mime, fileType: p.fileType, idempotencyKey: ApiClient.newIdempotencyKey());
+      if (!mounted || _stopped) return;
+      setState(() => _attachmentId = up.attachmentId);
+      final job = await repo.startScan(attachmentId: up.attachmentId, feature: p.feature, idempotencyKey: ApiClient.newIdempotencyKey());
+      if (!mounted || _stopped) return;
+      setState(() => _scanId = job.id);
+      _startPolling();
+    } on Failure catch (e) {
+      if (!mounted) return;
+      final att = _attachmentId;
+      if (att == null) {
+        context.pushReplacement('/capture/upload-issue', extra: e);
+      } else if (e.isQuota || e.code.startsWith('ai_')) {
+        context.pushReplacement('/capture/ai-limit?mode=${p.mode.name}&attachment=$att&reason=${e.code}');
+      } else {
+        showFailure(context, e);
+        context.pushReplacement('/capture/manual?attachment=$att');
+      }
+    } catch (_) {
+      if (mounted) context.pushReplacement('/capture/upload-issue', extra: Failure.unknown);
+    }
   }
 
   @override
@@ -204,16 +254,16 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
   }
 
   Future<void> _poll() async {
-    if (_stopped) return;
+    if (_stopped || _scanId == null) return;
     _tick++;
     try {
-      final job = await ref.read(captureRepositoryProvider).scan(widget.scanId);
+      final job = await ref.read(captureRepositoryProvider).scan(_scanId!);
       if (!mounted) return;
       setState(() => _job = job);
       if (job.done) {
         _timer?.cancel();
         ref.invalidate(meProvider);
-        final att = widget.attachmentId ?? job.attachmentId;
+        final att = _attachmentId ?? job.attachmentId;
         if (job.state == 'succeeded') {
           final path = job.feature == 'product_label_extraction' ? '/capture/product/${job.id}' : '/capture/review/${job.id}';
           context.pushReplacement('$path${att == null ? '' : '?attachment=$att'}');
@@ -229,30 +279,30 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
     }
   }
 
-  String att(ScanJob j) => (widget.attachmentId ?? j.attachmentId) == null ? '' : '&attachment=${widget.attachmentId ?? j.attachmentId}';
+  String att(ScanJob j) => (_attachmentId ?? j.attachmentId) == null ? '' : '&attachment=${_attachmentId ?? j.attachmentId}';
 
   Future<void> _stop() async {
     _stopped = true;
     _timer?.cancel();
     try {
-      await ref.read(captureRepositoryProvider).discardScan(widget.scanId);
+      if (_scanId != null) await ref.read(captureRepositoryProvider).discardScan(_scanId!);
     } catch (_) {}
-    if (mounted) context.pushReplacement('/capture/manual${widget.attachmentId == null ? '' : '?attachment=${widget.attachmentId}'}');
+    if (mounted) context.pushReplacement('/capture/manual${_attachmentId == null ? '' : '?attachment=$_attachmentId'}');
   }
 
   @override
   Widget build(BuildContext context) {
     final c = context.w;
     final state = _job?.state ?? 'queued';
-    final steps = ['Uploaded securely', 'Reading the document', 'Checking every value against the text', 'Preparing your review'];
-    final active = switch (state) { 'queued' => 1, 'processing' => _tick < 4 ? 1 : 2, _ => 3 };
-    final label = _job?.feature == 'product_label_extraction';
+    final steps = [_uploading ? 'Uploading securely' : 'Uploaded securely', 'Reading the document', 'Checking every value against the text', 'Preparing your review'];
+    final active = _uploading ? 0 : switch (state) { 'queued' => 1, 'processing' => _tick < 4 ? 1 : 2, _ => 3 };
+    final label = (_job?.feature ?? widget.pending?.feature) == 'product_label_extraction';
     return WScreen(
       showBack: false,
       bottom: WButton.ghost('Stop and enter manually', onPressed: _stop),
       children: [
         const SizedBox(height: 40),
-        Center(child: WTag('1 action reserved', kind: WTagKind.accent, icon: PhosphorIconsRegular.sparkle)),
+        Center(child: WTag(_uploading ? 'Preparing' : '1 action reserved', kind: WTagKind.accent, icon: PhosphorIconsRegular.sparkle)),
         const SizedBox(height: 14),
         Text(label ? 'Reading the label' : 'Reading your receipt', textAlign: TextAlign.center, style: context.t.headlineSmall),
         const SizedBox(height: 8),
