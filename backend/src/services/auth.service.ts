@@ -13,11 +13,15 @@ const sessionView = (session: { access_token: string; refresh_token: string; exp
     ? { access_token: session.access_token, refresh_token: session.refresh_token, expires_at: session.expires_at, expires_in: session.expires_in }
     : null;
 
-function authError(err: { message?: string; status?: number; code?: string } | null): never {
+function authError(err: { message?: string; status?: number; code?: string } | null, provider?: 'google' | 'apple'): never {
   const msg = err?.message ?? '';
   if (/identity_link_requires_explicit_intent|Database error/i.test(msg)) {
     throw new AppError(409, 'account_exists_use_original_sign_in',
       'An account already uses this email. Sign in with your original method, then link this provider in Settings.');
+  }
+  if (provider && (err?.status === 400 || err?.status === 401 || err?.status === 422)) {
+    const name = provider === 'google' ? 'Google' : 'Apple';
+    throw unauthorized('provider_token_invalid', `${name} sign-in didn't go through. Try again, or use email.`);
   }
   if (err?.status === 400 || err?.status === 401 || err?.status === 422) {
     // Generic message — never reveal whether an email is registered.
@@ -69,7 +73,7 @@ export async function signInWithIdToken(input: { provider: 'google' | 'apple'; i
     nonce: input.nonce,
     access_token: input.access_token,
   });
-  if (error) authError(error);
+  if (error) authError(error, input.provider);
   return { user_id: data.user?.id, session: sessionView(data.session) };
 }
 

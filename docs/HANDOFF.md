@@ -78,7 +78,14 @@ ops session shares the folder). Ask the user before committing.
    (64 MB: the user must drag it into Play; Chrome upload tool limit is 10 MB), roll out to internal testers.
 5. On a phone: install via the internal test link, sign up, add an item → allow notifications,
    test a purchase with the license-tester account, confirm plan becomes Pro.
-6. Optional: Google sign-in (guide step 3), email via Resend (step 6), Ops Console finish/commit.
+6. **Google sign-in (native)**, set up 2026-11-22 in GCP project warrantra-6b9c2 (Chrome /u/4): Google Auth Platform
+   configured (External, **Testing** status; test user = the user's phone Gmail). OAuth clients: Web "Warrantra server"
+   `484217401773-oprt7s7e7u3oihukl2ika8a8odbmuiop.apps.googleusercontent.com` (redirect = Supabase `/auth/v1/callback`;
+   saved in `app/env/dev.json` as `GOOGLE_SERVER_CLIENT_ID`), and 3 Android clients for `com.warrantra.app` (Play signing,
+   upload, debug SHA-1s). Supabase → Google provider **enabled** with that Client ID (no secret needed for native
+   sign-in; add it only if web OAuth is ever used). To open sign-in to everyone: host a
+   privacy policy + homepage (warrantra.app doesn't resolve yet), add them on Branding, then Audience → Publish app.
+   Optional still: email via Resend (guide step 6), Ops Console finish/commit.
 
 ## Useful commands
 ```bash
