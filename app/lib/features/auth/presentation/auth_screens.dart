@@ -72,83 +72,126 @@ class _OnboardingState extends ConsumerState<OnboardingScreen> {
   }
 
   @override
+  void dispose() {
+    _page.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final c = context.w;
     final pages = [
+      // 1 · Capture
       _ObPage(
-        title: 'Keep the proof.',
-        body: 'Receipts, warranty cards and order PDFs in one private vault. One receipt can cover several things you bought.',
+        step: 'Capture',
+        title: 'Snap it once.\nWe do the typing.',
+        body: 'Add a purchase in seconds from a photo, a PDF or a receipt shared from your email.',
         fragment: _Fragment(
           children: [
-            Text('One receipt · two items', style: TextStyle(fontSize: 12, color: c.textSubtle)),
+            Row(children: [
+              Icon(PhosphorIconsRegular.sparkle, size: 14, color: c.accent),
+              const SizedBox(width: 6),
+              Flexible(child: Text('Read from your receipt. Check, then save.', style: TextStyle(fontSize: 12, color: c.textSubtle))),
+            ]),
             const SizedBox(height: 8),
-            WListRow(
-              icon: PhosphorIconsRegular.receipt,
-              title: 'Home Depot order H8829-114',
-              subtitle: 'PDF · 2 pages · stored once',
-              caret: false,
-              dense: true,
-            ),
-            Row(
-              children: [
-                WTag('LG washer', icon: PhosphorIconsRegular.washingMachine, kind: WTagKind.accent),
-                const SizedBox(width: 6),
-                WTag('LG dryer', icon: PhosphorIconsRegular.wind, kind: WTagKind.accent),
-              ],
-            ),
+            const _Field('Store', 'Best Buy'),
+            const _Field('Date', 'Nov 2, 2026'),
+            const _Field('Total', r'$1,249.98'),
+            const SizedBox(height: 8),
+            const Wrap(spacing: 6, runSpacing: 6, children: [
+              WTag('Sony 65" TV', icon: PhosphorIconsRegular.television, kind: WTagKind.accent),
+              WTag('Wall mount', icon: PhosphorIconsRegular.wrench, kind: WTagKind.accent),
+            ]),
           ],
         ),
+        points: const [
+          _Point(PhosphorIconsRegular.camera, 'Photo, PDF or share-in', 'Originals are kept, so the proof is always there'),
+          _Point(PhosphorIconsRegular.checkCircle, 'You confirm every field', 'Anything unclear is left empty, never guessed'),
+          _Point(PhosphorIconsRegular.stack, 'One receipt, many items', 'Track the TV and the mount separately'),
+        ],
       ),
+      // 2 · Deadlines
       _ObPage(
-        title: 'Know the deadline.',
-        body: 'Returns, registrations and coverage dates, each marked verified, estimated or unknown. Unknown stays unknown.',
+        step: 'Deadlines',
+        title: 'Never miss a return\nor warranty date.',
+        body: 'Every item gets its dates worked out, and you get a nudge before each one passes.',
         fragment: _Fragment(
           children: [
-            _ObRow('Return · Sat, Nov 7', 'From Best Buy receipt', const CertBadge('user_confirmed', long: true)),
-            _ObRow('Warranty · Oct 23, 2027', '12 months from purchase', const CertBadge('estimated')),
-            _ObRow('Washer coverage', 'No terms found yet', const CertBadge('unknown')),
+            _ObRow('Return to Best Buy', 'Closes Nov 17', const WTag('5 days left', kind: WTagKind.urgent, icon: PhosphorIconsRegular.clock)),
+            _ObRow('Sony warranty', 'Until Nov 2, 2027', const CertBadge('estimated')),
+            _ObRow('Register the TV', 'Unlocks the extra year', const CertBadge('user_confirmed')),
+            _ObRow('Mount coverage', 'No terms found yet', const CertBadge('unknown')),
           ],
         ),
+        points: const [
+          _Point(PhosphorIconsRegular.bell, 'Reminders before each date', 'At the time you pick, in your time zone'),
+          _Point(PhosphorIconsRegular.sealCheck, 'Confirmed, estimated or unknown', "We never assume a 30-day return policy"),
+          _Point(PhosphorIconsRegular.calendarCheck, 'A monthly digest', "What's ending soon and what's still missing"),
+        ],
       ),
+      // 3 · Claims
       _ObPage(
-        title: 'Be ready when something goes wrong.',
-        body: "Turn saved facts and proof into a claim pack. Warrantra isn't an insurer and can't guarantee a claim.",
+        step: 'Claims',
+        title: 'Something broke?\nYou are ready.',
+        body: 'Turn what you saved into a claim pack you can send to the store or the maker.',
         fragment: _Fragment(
           children: [
             Text('Claim pack', style: TextStyle(fontSize: 12, color: c.textSubtle)),
             const SizedBox(height: 4),
-            Text(
-              'Samsung 65" QN90D · backlight flicker',
-              style: TextStyle(fontWeight: FontWeight.w500, color: c.text),
-            ),
+            Text('Sony 65" TV · screen flicker', style: TextStyle(fontWeight: FontWeight.w500, color: c.text)),
             const SizedBox(height: 8),
-            for (final l in ['Product, model and serial', 'Receipt and coverage terms', 'Your photos and description'])
+            for (final l in ['Model, serial and purchase date', 'Receipt and warranty terms', 'Your photos and what happened'])
               Padding(
                 padding: const EdgeInsets.only(bottom: 4),
-                child: Row(
-                  children: [
-                    Icon(PhosphorIconsBold.check, size: 14, color: c.accent),
-                    const SizedBox(width: 6),
-                    Text(l, style: TextStyle(color: c.textMuted, fontSize: 13.5)),
-                  ],
-                ),
+                child: Row(children: [
+                  Icon(PhosphorIconsBold.check, size: 14, color: c.accent),
+                  const SizedBox(width: 6),
+                  Flexible(child: Text(l, style: TextStyle(color: c.textMuted, fontSize: 13.5))),
+                ]),
               ),
-            const SizedBox(height: 4),
-            Text('You review it and send it to the provider.', style: TextStyle(fontSize: 12, color: c.textSubtle)),
           ],
         ),
+        points: const [
+          _Point(PhosphorIconsRegular.firstAidKit, 'Claim pack in a tap', 'All the proof in one PDF; you review and send it'),
+          _Point(PhosphorIconsRegular.chatCircleText, 'Track every claim', 'Who you contacted, what they said, what happened'),
+          _Point(PhosphorIconsRegular.trophy, 'See what you got back', 'Refunds, repairs and replacements add up in Outcomes'),
+        ],
+        note: "Warrantra isn't insurance and can't guarantee a claim.",
+      ),
+      // 4 · Privacy & plans
+      _ObPage(
+        step: 'Your data',
+        title: 'Private, and free\nto start.',
+        body: 'Your receipts stay in your account. Upgrade only if you need more.',
+        fragment: _Fragment(
+          children: [
+            const _Plan('Free', '10 items · 100 MB · reminders · export · 3 AI receipt reads to try'),
+            Divider(height: 18, color: c.divider),
+            const _Plan('Pro', '500 items · 1 GB · 20 AI reads a month · full claim packs', accent: true),
+          ],
+        ),
+        points: const [
+          _Point(PhosphorIconsRegular.lockSimple, 'Private to your account', 'Documents are never shared or sold'),
+          _Point(PhosphorIconsRegular.shieldCheck, 'AI only with your OK', 'Turn receipt reading on or off in Settings'),
+          _Point(PhosphorIconsRegular.export, 'Export any time, free', 'Take your items and files with you'),
+        ],
       ),
     ];
+    final last = _i == pages.length - 1;
     return Scaffold(
       body: SafeArea(
         child: Column(
           children: [
-            Align(
-              alignment: Alignment.centerRight,
-              child: Padding(
-                padding: const EdgeInsets.all(8),
-                child: WButton.ghost('Skip', onPressed: _finish),
-              ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 4, 8, 0),
+              child: Row(children: [
+                const WLogo(size: 26),
+                const SizedBox(width: 8),
+                Text('Warrantra', style: TextStyle(fontWeight: FontWeight.w600, color: c.text)),
+                const Spacer(),
+                if (!last) WButton.ghost('Skip', onPressed: _finish),
+                if (last) const SizedBox(height: 44),
+              ]),
             ),
             Expanded(
               child: PageView(controller: _page, onPageChanged: (i) => setState(() => _i = i), children: pages),
@@ -167,10 +210,10 @@ class _OnboardingState extends ConsumerState<OnboardingScreen> {
               ],
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+              padding: const EdgeInsets.fromLTRB(20, 14, 20, 12),
               child: WButton(
-                _i == pages.length - 1 ? 'Start tracking purchases' : 'Next',
-                onPressed: () => _i == pages.length - 1 ? _finish() : _page.nextPage(duration: const Duration(milliseconds: 280), curve: Curves.easeOut),
+                last ? 'Get started, free' : 'Next',
+                onPressed: () => last ? _finish() : _page.nextPage(duration: const Duration(milliseconds: 280), curve: Curves.easeOut),
               ),
             ),
           ],
@@ -181,24 +224,61 @@ class _OnboardingState extends ConsumerState<OnboardingScreen> {
 }
 
 class _ObPage extends StatelessWidget {
-  const _ObPage({required this.title, required this.body, required this.fragment});
-  final String title, body;
+  const _ObPage({required this.step, required this.title, required this.body, required this.fragment, required this.points, this.note});
+  final String step, title, body;
+  final String? note;
   final Widget fragment;
+  final List<_Point> points;
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          fragment,
-          const SizedBox(height: 32),
-          Text(title, style: context.t.headlineMedium),
-          const SizedBox(height: 10),
-          Text(body, style: TextStyle(fontSize: 16, height: 1.5, color: context.w.textMuted)),
-        ],
+    final c = context.w;
+    return LayoutBuilder(
+      builder: (context, box) => SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minHeight: box.maxHeight - 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(step.toUpperCase(), style: TextStyle(fontSize: 12, letterSpacing: 1.2, fontWeight: FontWeight.w600, color: c.accent)),
+              const SizedBox(height: 6),
+              Text(title, style: context.t.headlineMedium),
+              const SizedBox(height: 8),
+              Text(body, style: TextStyle(fontSize: 15, height: 1.45, color: c.textMuted)),
+              const SizedBox(height: 18),
+              fragment,
+              const SizedBox(height: 18),
+              ...points,
+              if (note != null) Text(note!, style: TextStyle(fontSize: 12, color: c.textSubtle)),
+            ],
+          ),
+        ),
       ),
+    );
+  }
+}
+
+class _Point extends StatelessWidget {
+  const _Point(this.icon, this.title, this.sub);
+  final IconData icon;
+  final String title, sub;
+  @override
+  Widget build(BuildContext context) {
+    final c = context.w;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        IconTile(icon, size: 34),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(title, style: TextStyle(fontWeight: FontWeight.w600, color: c.text)),
+            const SizedBox(height: 1),
+            Text(sub, style: TextStyle(fontSize: 13, height: 1.35, color: c.textMuted)),
+          ]),
+        ),
+      ]),
     );
   }
 }
@@ -212,27 +292,58 @@ class _Fragment extends StatelessWidget {
   );
 }
 
+/// A read-from-receipt field with its "found" check.
+class _Field extends StatelessWidget {
+  const _Field(this.label, this.value);
+  final String label, value;
+  @override
+  Widget build(BuildContext context) {
+    final c = context.w;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(children: [
+        SizedBox(width: 56, child: Text(label, style: TextStyle(fontSize: 13, color: c.textSubtle))),
+        Expanded(child: Text(value, style: TextStyle(fontWeight: FontWeight.w500, color: c.text))),
+        Icon(PhosphorIconsBold.check, size: 14, color: c.accent),
+      ]),
+    );
+  }
+}
+
+class _Plan extends StatelessWidget {
+  const _Plan(this.name, this.detail, {this.accent = false});
+  final String name, detail;
+  final bool accent;
+  @override
+  Widget build(BuildContext context) {
+    final c = context.w;
+    return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      SizedBox(width: 52, child: WTag(name, kind: accent ? WTagKind.accent : WTagKind.outline)),
+      const SizedBox(width: 10),
+      Expanded(child: Text(detail, style: TextStyle(fontSize: 13, height: 1.4, color: c.textMuted))),
+    ]);
+  }
+}
+
 class _ObRow extends StatelessWidget {
   const _ObRow(this.title, this.sub, this.badge);
   final String title, sub;
   final Widget badge;
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 6),
+    padding: const EdgeInsets.symmetric(vertical: 5),
     child: Row(
       children: [
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                title,
-                style: TextStyle(fontWeight: FontWeight.w500, color: context.w.text),
-              ),
+              Text(title, style: TextStyle(fontWeight: FontWeight.w500, color: context.w.text)),
               Text(sub, style: TextStyle(fontSize: 12.5, color: context.w.textMuted)),
             ],
           ),
         ),
+        const SizedBox(width: 8),
         badge,
       ],
     ),
@@ -260,7 +371,8 @@ class _SignInState extends ConsumerState<SignInScreen> {
       await action();
       ref.read(sessionProvider.notifier).markSignedIn();
     } catch (e) {
-      if (mounted) showFailure(context, e);
+      // Closing the Google account picker isn't an error.
+      if (mounted && !(e is Failure && e.code == 'cancelled')) showFailure(context, e);
     } finally {
       if (mounted) setState(() => _busy = null);
     }

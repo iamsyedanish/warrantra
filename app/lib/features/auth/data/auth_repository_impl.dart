@@ -77,7 +77,19 @@ class AuthRepositoryImpl implements AuthRepository {
       clientId: AppConfig.googleIosClientId.isEmpty ? null : AppConfig.googleIosClientId,
       serverClientId: AppConfig.googleServerClientId,
     );
-    final account = await google.authenticate();
+    final GoogleSignInAccount account;
+    try {
+      account = await google.authenticate();
+    } on GoogleSignInException catch (e) {
+      throw switch (e.code) {
+        GoogleSignInExceptionCode.canceled => const Failure('cancelled', ''),
+        GoogleSignInExceptionCode.interrupted => const Failure('provider_error', 'Google sign-in was interrupted. Please try again.'),
+        GoogleSignInExceptionCode.uiUnavailable => const Failure('provider_error', 'Google sign-in could not open on this phone. Use email for now.'),
+        GoogleSignInExceptionCode.clientConfigurationError || GoogleSignInExceptionCode.providerConfigurationError =>
+          Failure('provider_unavailable', "Google sign-in isn't set up for this version yet. Use email for now.${e.description == null ? '' : ' (${e.description})'}"),
+        _ => Failure('provider_error', 'Google sign-in failed${e.description == null ? '' : ': ${e.description}'}. Try again, or use email.'),
+      };
+    }
     final token = account.authentication.idToken;
     if (token == null) throw const Failure('provider_error', 'Google did not return a sign-in token.');
     return (token, null, null);
