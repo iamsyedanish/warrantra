@@ -1,9 +1,14 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
+import '../core/push/push_service.dart';
 import '../core/theme/tokens.dart';
+import '../core/widgets/scaffold.dart';
+import '../features/home/presentation/home_providers.dart';
 import '../features/capture/presentation/add_sheet.dart';
 import 'device_registration.dart';
 
@@ -15,11 +20,45 @@ class AppShell extends ConsumerStatefulWidget {
   ConsumerState<AppShell> createState() => _AppShellState();
 }
 
-class _AppShellState extends ConsumerState<AppShell> {
+class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver {
+  final _subs = <StreamSubscription<Object?>>[];
+
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => registerDevice(ref));
+    WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await registerDevice(ref);
+      final push = PushService.instance;
+      // A tapped reminder opens its item (or the Action Center).
+      _subs.add(push.opened.listen((data) {
+        if (!mounted) return;
+        final itemId = data['item_id']?.toString() ?? '';
+        context.push(itemId.isEmpty ? '/home' : '/items/$itemId');
+      }));
+      // While the app is open Android shows nothing, so show it in the app.
+      _subs.add(push.foreground.listen((m) {
+        if (!mounted) return;
+        ref.invalidate(actionCenterProvider);
+        final title = m.notification?.title;
+        if (title != null) showToast(context, title);
+      }));
+    });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Picks up a permission granted in system settings, or the first saved item.
+    if (state == AppLifecycleState.resumed) registerDevice(ref);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    for (final s in _subs) {
+      s.cancel();
+    }
+    super.dispose();
   }
 
   @override

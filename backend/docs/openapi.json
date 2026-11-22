@@ -610,13 +610,13 @@
         }
       }
     },
-    "/v1/webhooks/revenuecat": {
+    "/v1/webhooks/google-play": {
       "post": {
-        "operationId": "WebhookController_revenuecat",
+        "operationId": "WebhookController_googlePlay",
         "tags": [
           "webhooks"
         ],
-        "summary": "Revenuecat",
+        "summary": "Google Play",
         "security": [
           {
             "webhookAuth": []
@@ -1335,6 +1335,41 @@
           "me"
         ],
         "summary": "Restore Purchases",
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK — `{ \"data\": ... }`"
+          },
+          "201": {
+            "description": "Created"
+          },
+          "202": {
+            "description": "Accepted (queued)"
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/me/purchases/google-play": {
+      "post": {
+        "operationId": "MeController_verifyPlayPurchase",
+        "tags": [
+          "me"
+        ],
+        "summary": "Verify Play Purchase",
         "security": [
           {
             "bearer": []

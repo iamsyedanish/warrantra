@@ -61,9 +61,9 @@ export const PartnerController = {
 };
 
 export const WebhookController = {
-  revenuecat: async (req: Request, res: Response) => {
-    billing.verifyWebhookAuth(req.header('Authorization'));
-    const r = await billing.receiveWebhook(req.body);
+  googlePlay: async (req: Request, res: Response) => {
+    await billing.verifyRtdn(req.header('Authorization'), req.query.token);
+    const r = await billing.receiveRtdn(req.body);
     res.status(200).json(r);
   },
   inboundEmail: async (req: Request, res: Response) => {

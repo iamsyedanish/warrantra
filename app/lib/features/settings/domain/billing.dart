@@ -1,5 +1,5 @@
-/// Store purchases. The server (RevenueCat webhook + reconcile) is the source of
-/// truth for entitlement; the app only starts purchases and asks for a reconcile.
+/// Store purchases. The server (Google Play API + real-time notifications) is the
+/// source of truth for entitlement; the app starts purchases and hands it the tokens.
 class StorePackage {
   const StorePackage({required this.id, required this.period, required this.priceLabel, this.pricePerMonthLabel});
   final String id, period, priceLabel; // period: annual | monthly

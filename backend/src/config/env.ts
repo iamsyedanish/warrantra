@@ -44,11 +44,15 @@ const EnvSchema = z.object({
   AI_SERVER_FALLBACKS: bool('true'),
   AI_PROMPT_VERSION: z.string().default('receipt-extract-v1'),
 
-  // Billing (RevenueCat)
-  REVENUECAT_WEBHOOK_AUTH: z.string().min(16),
-  REVENUECAT_SECRET_API_KEY: z.string().optional(),
-  REVENUECAT_PRO_ENTITLEMENT: z.string().default('pro'),
-  REVENUECAT_BUSINESS_ENTITLEMENT: z.string().default('business_pilot'),
+  // Billing (Google Play directly). The service account defaults to the FCM one
+  // (same Google Cloud project); it needs access in Play Console > Users and permissions.
+  GOOGLE_PLAY_PACKAGE_NAME: z.string().default('com.warrantra.app'),
+  GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: z.string().optional(),
+  // Real-time developer notifications arrive by Pub/Sub push, signed with an OIDC token
+  // for the service account above; audience defaults to <PUBLIC_BASE_URL>/v1/webhooks/google-play.
+  GOOGLE_PLAY_RTDN_AUDIENCE: z.string().url().optional(),
+  // Optional alternative: shared secret in the push URL (?token=...).
+  GOOGLE_PLAY_RTDN_TOKEN: z.string().min(16).optional(),
 
   // Push (FCM HTTP v1; APNs via FCM)
   PUSH_PROVIDER: z.enum(['fcm', 'log']).default('log'),

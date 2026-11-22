@@ -21,8 +21,10 @@ describe('HTTP surface', () => {
   });
 
   it('rejects unauthenticated billing and inbound webhooks', async () => {
-    const rc = await request(app).post('/v1/webhooks/revenuecat').set('Authorization', 'Bearer wrong').send({ event: { id: 'x', type: 'RENEWAL', environment: 'PRODUCTION' } });
-    expect(rc.status).toBe(401);
+    const play = await request(app).post('/v1/webhooks/google-play?token=wrong-token-value').send({ message: { data: 'e30=', messageId: '1' } });
+    expect(play.status).toBe(401);
+    const noToken = await request(app).post('/v1/webhooks/google-play').send({ message: { data: 'e30=', messageId: '1' } });
+    expect(noToken.status).toBe(401);
     const inbound = await request(app).post('/v1/webhooks/inbound-email').send({ MessageID: 'x' });
     expect(inbound.status).toBe(401);
     const cron = await request(app).post('/v1/internal/cron/reminders').set('X-Cron-Secret', 'nope');

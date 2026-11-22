@@ -7,7 +7,7 @@ import { redactDeep } from '../../src/lib/redact.js';
 import { scrub } from '../../src/lib/logger.js';
 import { computeProfit, PLANNING_CASE } from '../../src/services/profitability/calculator.js';
 import { recognisedRevenue } from '../../src/services/profitability/profitability.service.js';
-import { deriveFromEvent, deriveFromSubscriber, revenueFromEvent, type RcEvent } from '../../src/services/billing/reconcile.js';
+import { deriveFromPlay, orderKind, usdPrice, type PlaySubscription } from '../../src/services/billing/reconcile.js';
 import { validateLabelCandidate, validateReceiptCandidate } from '../../src/services/ai/validate.js';
 import { inspectBytes } from '../../src/services/attachment.service.js';
 import { buildPurchasePayload } from '../../src/services/purchase.service.js';
@@ -103,36 +103,46 @@ describe('profit-first model reproduces the spec planning table', () => {
   });
 });
 
-describe('billing reconciliation', () => {
-  const now = new Date('2026-11-09T00:00:00Z');
-  const sub = (s: Record<string, unknown>, ent: Record<string, unknown> = {}) => ({
-    entitlements: { pro: { expires_date: '2026-12-01T00:00:00Z', product_identifier: 'pro_annual', purchase_date: '2026-01-01T00:00:00Z', ...ent } },
-    subscriptions: { pro_annual: { expires_date: '2026-12-01T00:00:00Z', store: 'APP_STORE', is_sandbox: false, ...s } },
+describe('billing reconciliation (Google Play)', () => {
+  const now = new Date('2026-11-10T00:00:00Z');
+  const sub = (o: Partial<PlaySubscription> = {}, li: Record<string, unknown> = {}): PlaySubscription => ({
+    subscriptionState: 'SUBSCRIPTION_STATE_ACTIVE',
+    startTime: '2026-10-10T00:00:00Z',
+    latestOrderId: 'GPA.1111-2222-3333-44444',
+    acknowledgementState: 'ACKNOWLEDGEMENT_STATE_ACKNOWLEDGED',
+    lineItems: [{ productId: 'warrantra_pro', expiryTime: '2027-10-10T00:00:00Z', autoRenewingPlan: { autoRenewEnabled: true, recurringPrice: { currencyCode: 'USD', units: '79', nanos: 990000000 } },
+                  offerDetails: { basePlanId: 'annual' }, ...li }],
+    ...o,
   });
-  it('cancellation keeps access until expiry', () => {
-    const d = deriveFromSubscriber(sub({ unsubscribe_detected_at: '2026-11-01T00:00:00Z' }), 'pro', now)!;
-    expect(d.state).toBe('active');
-    expect(d.renewal_intent).toBe('will_not_renew');
-    expect(d.valid_until).toBe('2026-12-01T00:00:00Z');
-    expect(d.billing_period).toBe('annual');
+
+  it('maps an active annual purchase', () => {
+    const d = deriveFromPlay(sub(), 'tok', { now })!;
+    expect(d).toMatchObject({ state: 'active', renewal_intent: 'will_renew', environment: 'PRODUCTION', billing_period: 'annual',
+                              product_id: 'warrantra_pro:annual', store: 'play_store', original_transaction_id: 'tok', entitlement_key: 'pro' });
   });
-  it('refunds end access; grace periods are honoured; sandbox is labelled', () => {
-    expect(deriveFromSubscriber(sub({ refunded_at: '2026-11-05T00:00:00Z' }), 'pro', now)!.state).toBe('refunded');
-    const g = deriveFromSubscriber(sub({ billing_issues_detected_at: '2026-11-01T00:00:00Z', expires_date: '2026-11-02T00:00:00Z' },
-      { expires_date: '2026-11-02T00:00:00Z', grace_period_expires_date: '2026-11-20T00:00:00Z' }), 'pro', now)!;
-    expect(g.state).toBe('grace_period');
-    expect(deriveFromSubscriber(sub({ is_sandbox: true }), 'pro', now)!.environment).toBe('SANDBOX');
-    expect(deriveFromSubscriber({ entitlements: {}, subscriptions: {} }, 'pro', now)).toBeNull();
+
+  it('keeps access after cancel until expiry, then expires', () => {
+    const c = deriveFromPlay(sub({ subscriptionState: 'SUBSCRIPTION_STATE_CANCELED' }, { autoRenewingPlan: { autoRenewEnabled: false } }), 'tok', { now })!;
+    expect(c.state).toBe('active');
+    expect(c.renewal_intent).toBe('will_not_renew');
+    const e = deriveFromPlay(sub({ subscriptionState: 'SUBSCRIPTION_STATE_CANCELED' }, { expiryTime: '2026-11-01T00:00:00Z' }), 'tok', { now })!;
+    expect(e.state).toBe('expired');
   });
-  it('event fallback: cancellation != loss of access; CUSTOMER_SUPPORT cancellation = refund', () => {
-    const base: RcEvent = { id: 'e1', type: 'CANCELLATION', environment: 'PRODUCTION', entitlement_ids: ['pro'], product_id: 'pro_monthly',
-      expiration_at_ms: Date.parse('2026-11-30T00:00:00Z'), event_timestamp_ms: Date.parse('2026-11-08T00:00:00Z') };
-    expect(deriveFromEvent(base, 'pro', now)!.state).toBe('active');
-    expect(deriveFromEvent({ ...base, cancel_reason: 'CUSTOMER_SUPPORT' }, 'pro', now)!.state).toBe('refunded');
-    expect(deriveFromEvent({ ...base, entitlement_ids: ['other'] }, 'pro', now)).toBeNull();
-    const rev = revenueFromEvent({ ...base, cancel_reason: 'CUSTOMER_SUPPORT', price: 19.99, transaction_id: 't1' });
-    expect(rev?.kind).toBe('refund');
-    expect(rev?.gross_usd).toBe(-19.99);
+
+  it('handles grace, hold, refund, test purchases and pending', () => {
+    expect(deriveFromPlay(sub({ subscriptionState: 'SUBSCRIPTION_STATE_IN_GRACE_PERIOD' }), 't', { now })!.state).toBe('grace_period');
+    expect(deriveFromPlay(sub({ subscriptionState: 'SUBSCRIPTION_STATE_ON_HOLD' }), 't', { now })!.state).toBe('billing_retry');
+    expect(deriveFromPlay(sub({ subscriptionState: 'SUBSCRIPTION_STATE_EXPIRED' }), 't', { now, revoked: true })!.state).toBe('refunded');
+    expect(deriveFromPlay(sub({ testPurchase: {} }), 't', { now })!.environment).toBe('SANDBOX');
+    expect(deriveFromPlay(sub({ subscriptionState: 'SUBSCRIPTION_STATE_PENDING' }), 't', { now })).toBeNull();
+    expect(deriveFromPlay(sub({ lineItems: [] }), 't', { now })).toBeNull();
+  });
+
+  it('reads USD price and tells purchases from renewals', () => {
+    expect(usdPrice(sub().lineItems![0]!)).toBe(79.99);
+    expect(usdPrice({ productId: 'x', autoRenewingPlan: { recurringPrice: { currencyCode: 'EUR', units: '7' } } })).toBeNull();
+    expect(orderKind('GPA.1111-2222-3333-44444')).toBe('purchase');
+    expect(orderKind('GPA.1111-2222-3333-44444..2')).toBe('renewal');
   });
 });
 

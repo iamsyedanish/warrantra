@@ -15,10 +15,6 @@ class AppConfig {
   /// Apple sign-in is available on iOS once Apple is enabled in Supabase Auth.
   static const appleSignInEnabled = bool.fromEnvironment('APPLE_SIGN_IN', defaultValue: true);
 
-  /// RevenueCat public SDK keys (purchases are disabled when empty).
-  static const revenueCatAppleKey = String.fromEnvironment('REVENUECAT_APPLE_KEY');
-  static const revenueCatGoogleKey = String.fromEnvironment('REVENUECAT_GOOGLE_KEY');
-
   /// Current AI consent text version shown on the consent screen.
   static const aiConsentVersion = 'v1';
 

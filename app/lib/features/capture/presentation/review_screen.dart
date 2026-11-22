@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
+import '../../../app/device_registration.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/utils/format.dart';
@@ -105,6 +108,8 @@ class _ReviewFormState extends ConsumerState<_ReviewForm> {
       };
       final res = await ref.read(itemsRepositoryProvider).savePurchase(body, idempotencyKey: _key);
       ref.refreshItems();
+      // First saved purchase is when reminders matter: ask for notifications now.
+      unawaited(registerDevice(ref, askPermission: true));
       if (!mounted) return;
       final mentions = [...d.returnMentions.map((m) => 'Return: ${m.text}'), ...d.warrantyMentions.map((m) => 'Warranty: ${m.text}')];
       context.pushReplacement('/capture/coverage', extra: CoverageSetupArgs(itemIds: res.itemIds, retailer: merchant.text.trim(), mentions: mentions, warnings: res.warnings));
