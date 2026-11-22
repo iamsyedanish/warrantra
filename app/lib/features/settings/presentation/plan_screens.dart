@@ -121,7 +121,7 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
       final offer = ref.read(offerProvider).value;
       final r = await billing.buy(pkg.id, offering: offer?.offering);
       if (r == PurchaseOutcome.purchased) {
-        await ref.read(accountRepositoryProvider).restorePurchases();
+        // The purchase was already verified by the server before it completed.
         ref.invalidate(meProvider);
         if (mounted) {
           showToast(context, 'Welcome to Pro');

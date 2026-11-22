@@ -73,7 +73,7 @@ export function computeProfit(i: ProfitInputs): ProfitResult {
 /** The spec's illustrative planning case (every value is an assumption). */
 export const PLANNING_CASE: Omit<ProfitInputs, 'monthlyPrice' | 'platformFee'> = {
   refundReserve: 0.03,
-  revenueCatRate: 0.01,
+  revenueCatRate: 0.01, // spec planning case; live settings use 0 (no RevenueCat)
   variableCostPerPaid: 0.45,
   cacPerNewPayer: 15,
   cacRecoveryMonths: 12,

@@ -1,8 +1,9 @@
 /**
- * Pure entitlement derivation. Reconciles AUTHORITATIVE subscriber state from
- * RevenueCat's REST API rather than applying webhook events in arrival order.
- * An event-based fallback exists for when the API is unavailable; it ignores
- * events older than the last applied one.
+ * Pure entitlement derivation from Google Play's authoritative subscription
+ * state (Android Publisher API `purchases.subscriptionsv2.get`). Real-time
+ * developer notifications only tell us *which* purchase changed; the state
+ * itself is always re-read from Google, so delayed or out-of-order
+ * notifications cannot regress an entitlement.
  */
 
 export type EntitlementState = 'active' | 'grace_period' | 'billing_retry' | 'expired' | 'refunded' | 'revoked' | 'paused' | 'transferred';
@@ -23,202 +24,116 @@ export interface DerivedEntitlement {
   original_transaction_id: string | null;
 }
 
-export interface RcSubscriberEntitlement {
-  expires_date: string | null;
-  grace_period_expires_date?: string | null;
-  product_identifier: string;
-  purchase_date: string | null;
+export interface PlayMoney { currencyCode?: string; units?: string; nanos?: number }
+
+export interface PlayLineItem {
+  productId: string;
+  expiryTime?: string;
+  latestSuccessfulOrderId?: string;
+  autoRenewingPlan?: { autoRenewEnabled?: boolean; recurringPrice?: PlayMoney };
+  prepaidPlan?: Record<string, unknown>;
+  offerDetails?: { basePlanId?: string; offerId?: string; offerTags?: string[] };
 }
 
-export interface RcSubscription {
-  expires_date: string | null;
-  purchase_date?: string | null;
-  original_purchase_date?: string | null;
-  period_type?: string | null;
-  store?: string | null;
-  is_sandbox?: boolean;
-  unsubscribe_detected_at?: string | null;
-  billing_issues_detected_at?: string | null;
-  grace_period_expires_date?: string | null;
-  refunded_at?: string | null;
-  store_transaction_id?: string | null;
+/** Subset of SubscriptionPurchaseV2 that we use. */
+export interface PlaySubscription {
+  subscriptionState: string;
+  startTime?: string;
+  latestOrderId?: string;
+  linkedPurchaseToken?: string;
+  acknowledgementState?: string;
+  testPurchase?: Record<string, unknown>;
+  externalAccountIdentifiers?: { obfuscatedExternalAccountId?: string; obfuscatedExternalProfileId?: string };
+  lineItems?: PlayLineItem[];
 }
 
-export interface RcSubscriber {
-  entitlements: Record<string, RcSubscriberEntitlement>;
-  subscriptions: Record<string, RcSubscription>;
-}
+/** RTDN subscriptionNotification.notificationType values. */
+export const PLAY_NOTIFICATION: Record<number, string> = {
+  1: 'SUBSCRIPTION_RECOVERED', 2: 'SUBSCRIPTION_RENEWED', 3: 'SUBSCRIPTION_CANCELED', 4: 'SUBSCRIPTION_PURCHASED',
+  5: 'SUBSCRIPTION_ON_HOLD', 6: 'SUBSCRIPTION_IN_GRACE_PERIOD', 7: 'SUBSCRIPTION_RESTARTED', 8: 'SUBSCRIPTION_PRICE_CHANGE_CONFIRMED',
+  9: 'SUBSCRIPTION_DEFERRED', 10: 'SUBSCRIPTION_PAUSED', 11: 'SUBSCRIPTION_PAUSE_SCHEDULE_CHANGED', 12: 'SUBSCRIPTION_REVOKED',
+  13: 'SUBSCRIPTION_EXPIRED', 17: 'SUBSCRIPTION_ITEMS_CHANGED', 18: 'SUBSCRIPTION_CANCELLATION_SCHEDULED',
+  19: 'SUBSCRIPTION_PRICE_CHANGE_UPDATED', 20: 'SUBSCRIPTION_PENDING_PURCHASE_CANCELED', 22: 'SUBSCRIPTION_PRICE_STEP_UP_CONSENT_UPDATED',
+};
 
-export const mapStore = (s: string | null | undefined): string =>
-  ({ APP_STORE: 'app_store', app_store: 'app_store', PLAY_STORE: 'play_store', play_store: 'play_store', STRIPE: 'stripe', stripe: 'stripe',
-     PROMOTIONAL: 'promotional', promotional: 'promotional', AMAZON: 'amazon', amazon: 'amazon', MAC_APP_STORE: 'mac_app_store',
-     mac_app_store: 'mac_app_store' } as Record<string, string>)[s ?? ''] ?? 'unknown';
-
-export const mapPeriodType = (p: string | null | undefined): string | null =>
-  p ? ({ NORMAL: 'normal', normal: 'normal', TRIAL: 'trial', trial: 'trial', INTRO: 'intro', intro: 'intro', PROMOTIONAL: 'promotional',
-         promotional: 'promotional', PREPAID: 'prepaid', prepaid: 'prepaid' } as Record<string, string>)[p] ?? null : null;
-
-export function billingPeriodOf(productId: string | null | undefined): 'monthly' | 'annual' | 'other' {
-  const p = (productId ?? '').toLowerCase();
+export function billingPeriodOf(id: string | null | undefined): 'monthly' | 'annual' | 'other' {
+  const p = (id ?? '').toLowerCase();
   if (/(annual|yearly|year|1y|12m|p1y)/.test(p)) return 'annual';
   if (/(monthly|month|1m|p1m)/.test(p)) return 'monthly';
   return 'other';
 }
 
+/** Latest-expiring line item (a subscription normally has exactly one). */
+export function mainLineItem(sub: PlaySubscription): PlayLineItem | null {
+  const items = sub.lineItems ?? [];
+  if (items.length === 0) return null;
+  return [...items].sort((a, b) => Date.parse(b.expiryTime ?? '0') - Date.parse(a.expiryTime ?? '0'))[0]!;
+}
+
 const after = (iso: string | null | undefined, now: Date) => Boolean(iso && new Date(iso).getTime() > now.getTime());
 
-export function deriveFromSubscriber(sub: RcSubscriber, entitlementKey: string, now = new Date()): DerivedEntitlement | null {
-  const ent = sub.entitlements?.[entitlementKey];
-  if (!ent) return null;
-  const s = sub.subscriptions?.[ent.product_identifier] ?? ({} as RcSubscription);
-  const environment: Environment = s.is_sandbox ? 'SANDBOX' : 'PRODUCTION';
-  const store = mapStore(s.store);
-  const grace = ent.grace_period_expires_date ?? s.grace_period_expires_date ?? null;
-
+/**
+ * Map Google's subscription state to an entitlement. `revoked` comes from the
+ * SUBSCRIPTION_REVOKED notification: Google refunded and removed access, which
+ * the v2 resource reports only as EXPIRED.
+ */
+export function deriveFromPlay(sub: PlaySubscription, purchaseToken: string, opts: { revoked?: boolean; entitlementKey?: string; now?: Date } = {}): DerivedEntitlement | null {
+  const now = opts.now ?? new Date();
+  const li = mainLineItem(sub);
+  if (!li) return null;
+  if (sub.subscriptionState === 'SUBSCRIPTION_STATE_PENDING' || sub.subscriptionState === 'SUBSCRIPTION_STATE_PENDING_PURCHASE_CANCELED') return null;
+  const expiry = li.expiryTime ?? null;
   let state: EntitlementState;
-  let validUntil = ent.expires_date;
-  if (s.refunded_at) {
-    state = 'refunded';
-    validUntil = s.refunded_at;
-  } else if (ent.expires_date === null) {
-    state = 'active'; // lifetime / non-expiring promotional grant
-  } else if (after(ent.expires_date, now)) {
-    state = 'active';
-  } else if (s.billing_issues_detected_at && after(grace, now)) {
-    state = 'grace_period';
-  } else if (s.billing_issues_detected_at && !s.unsubscribe_detected_at) {
-    state = 'billing_retry'; // store still retrying; no paid access past valid_until
-  } else {
-    state = 'expired';
-  }
-
-  const renewal: DerivedEntitlement['renewal_intent'] =
-    state === 'refunded' || state === 'expired' ? 'will_not_renew' : s.unsubscribe_detected_at ? 'will_not_renew' : ent.expires_date ? 'will_renew' : 'unknown';
-
-  return {
-    entitlement_key: entitlementKey,
-    environment,
-    state,
-    renewal_intent: renewal,
-    valid_from: ent.purchase_date ?? s.purchase_date ?? null,
-    valid_until: validUntil,
-    grace_until: grace,
-    product_id: ent.product_identifier,
-    store,
-    period_type: mapPeriodType(s.period_type),
-    billing_period: billingPeriodOf(ent.product_identifier),
-    original_transaction_id: s.store_transaction_id ?? null,
-  };
-}
-
-export interface RcEvent {
-  id: string;
-  type: string;
-  app_user_id?: string;
-  original_app_user_id?: string;
-  aliases?: string[];
-  environment: Environment;
-  product_id?: string;
-  entitlement_ids?: string[] | null;
-  period_type?: string;
-  purchased_at_ms?: number | null;
-  expiration_at_ms?: number | null;
-  grace_period_expiration_at_ms?: number | null;
-  event_timestamp_ms?: number;
-  store?: string;
-  price?: number | null;
-  takehome_percentage?: number | null;
-  commission_percentage?: number | null;
-  tax_percentage?: number | null;
-  transaction_id?: string | null;
-  original_transaction_id?: string | null;
-  cancel_reason?: string | null;
-  country_code?: string | null;
-  transferred_from?: string[];
-  transferred_to?: string[];
-}
-
-const iso = (ms: number | null | undefined) => (ms ? new Date(ms).toISOString() : null);
-
-/** Fallback derivation from a single event when the authoritative API is unavailable. */
-export function deriveFromEvent(ev: RcEvent, entitlementKey: string, now = new Date()): DerivedEntitlement | null {
-  if (!(ev.entitlement_ids ?? []).includes(entitlementKey)) return null;
-  const validUntil = iso(ev.expiration_at_ms);
-  const grace = iso(ev.grace_period_expiration_at_ms);
-  let state: EntitlementState;
-  let renewal: DerivedEntitlement['renewal_intent'] = 'will_renew';
-  switch (ev.type) {
-    case 'INITIAL_PURCHASE':
-    case 'RENEWAL':
-    case 'UNCANCELLATION':
-    case 'PRODUCT_CHANGE':
-    case 'SUBSCRIPTION_EXTENDED':
-    case 'REFUND_REVERSED':
-    case 'TEMPORARY_ENTITLEMENT_GRANT':
-    case 'NON_RENEWING_PURCHASE':
-      state = after(validUntil, now) || validUntil === null ? 'active' : 'expired';
-      if (ev.type === 'NON_RENEWING_PURCHASE') renewal = 'will_not_renew';
+  switch (sub.subscriptionState) {
+    case 'SUBSCRIPTION_STATE_ACTIVE':
+      state = 'active';
       break;
-    case 'CANCELLATION':
-      if (ev.cancel_reason === 'CUSTOMER_SUPPORT') {
-        state = 'refunded';
-      } else {
-        // Cancellation changes renewal intent; access continues until expiry.
-        state = after(validUntil, now) ? 'active' : 'expired';
-      }
-      renewal = 'will_not_renew';
+    case 'SUBSCRIPTION_STATE_CANCELED':
+      // Cancelled = will not renew; access continues until the paid period ends.
+      state = after(expiry, now) ? 'active' : 'expired';
       break;
-    case 'BILLING_ISSUE':
-      state = after(grace, now) ? 'grace_period' : after(validUntil, now) ? 'active' : 'billing_retry';
+    case 'SUBSCRIPTION_STATE_IN_GRACE_PERIOD':
+      state = 'grace_period';
       break;
-    case 'SUBSCRIPTION_PAUSED':
-      state = after(validUntil, now) ? 'active' : 'paused';
+    case 'SUBSCRIPTION_STATE_ON_HOLD':
+      state = 'billing_retry';
       break;
-    case 'EXPIRATION':
-      state = 'expired';
-      renewal = 'will_not_renew';
+    case 'SUBSCRIPTION_STATE_PAUSED':
+      state = 'paused';
       break;
     default:
-      return null;
+      state = 'expired';
   }
+  if (opts.revoked) state = 'refunded';
+
+  const renews = li.autoRenewingPlan?.autoRenewEnabled;
+  const renewal: DerivedEntitlement['renewal_intent'] =
+    state === 'refunded' || state === 'expired' || li.prepaidPlan ? 'will_not_renew' : renews === true ? 'will_renew' : renews === false ? 'will_not_renew' : 'unknown';
+
   return {
-    entitlement_key: entitlementKey,
-    environment: ev.environment,
+    entitlement_key: opts.entitlementKey ?? 'pro',
+    environment: sub.testPurchase ? 'SANDBOX' : 'PRODUCTION',
     state,
     renewal_intent: renewal,
-    valid_from: iso(ev.purchased_at_ms),
-    valid_until: state === 'refunded' ? iso(ev.event_timestamp_ms) : validUntil,
-    grace_until: grace,
-    product_id: ev.product_id ?? null,
-    store: mapStore(ev.store),
-    period_type: mapPeriodType(ev.period_type),
-    billing_period: billingPeriodOf(ev.product_id),
-    original_transaction_id: ev.original_transaction_id ?? null,
+    valid_from: sub.startTime ?? null,
+    valid_until: state === 'refunded' ? now.toISOString() : expiry,
+    grace_until: state === 'grace_period' ? expiry : null,
+    product_id: li.offerDetails?.basePlanId ? `${li.productId}:${li.offerDetails.basePlanId}` : li.productId,
+    store: 'play_store',
+    period_type: li.offerDetails?.offerId ? 'intro' : li.prepaidPlan ? 'prepaid' : 'normal',
+    billing_period: billingPeriodOf(li.offerDetails?.basePlanId ?? li.productId),
+    original_transaction_id: purchaseToken,
   };
 }
 
-/** Revenue facts for profitability monitoring (null if the event carries no money movement). */
-export function revenueFromEvent(ev: RcEvent): null | {
-  transaction_id: string; kind: 'purchase' | 'renewal' | 'refund'; gross_usd: number; platform_fee_rate: number | null;
-  tax_rate: number | null; occurred_at: string; billing_period: string; store: string; product_id: string | null; country_code: string | null;
-} {
-  if (!ev.transaction_id || ev.price === null || ev.price === undefined) return null;
-  let kind: 'purchase' | 'renewal' | 'refund';
-  if (ev.type === 'INITIAL_PURCHASE' || ev.type === 'NON_RENEWING_PURCHASE') kind = 'purchase';
-  else if (ev.type === 'RENEWAL') kind = 'renewal';
-  else if (ev.type === 'CANCELLATION' && ev.cancel_reason === 'CUSTOMER_SUPPORT') kind = 'refund';
-  else return null;
-  const gross = kind === 'refund' ? -Math.abs(ev.price) : ev.price;
-  return {
-    transaction_id: ev.transaction_id,
-    kind,
-    gross_usd: Math.round(gross * 100) / 100,
-    platform_fee_rate: ev.commission_percentage ?? null,
-    tax_rate: ev.tax_percentage ?? null,
-    occurred_at: iso(ev.event_timestamp_ms) ?? new Date().toISOString(),
-    billing_period: billingPeriodOf(ev.product_id),
-    store: mapStore(ev.store),
-    product_id: ev.product_id ?? null,
-    country_code: ev.country_code ?? null,
-  };
+/** Recurring price in USD, or null when Google reports another currency (gross is tracked in USD only). */
+export function usdPrice(li: PlayLineItem | null): number | null {
+  const m = li?.autoRenewingPlan?.recurringPrice;
+  if (!m || m.currencyCode !== 'USD') return null;
+  return Math.round((Number(m.units ?? 0) + (m.nanos ?? 0) / 1e9) * 100) / 100;
+}
+
+/** Google order ids look like GPA.1234-5678-9012-34567 with `..N` appended per renewal. */
+export function orderKind(orderId: string): 'purchase' | 'renewal' {
+  return /\.\.\d+$/.test(orderId) ? 'renewal' : 'purchase';
 }

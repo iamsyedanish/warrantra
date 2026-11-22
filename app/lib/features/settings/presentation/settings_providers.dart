@@ -2,7 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../auth/presentation/session_controller.dart';
-import '../data/revenuecat_billing.dart';
+import '../data/play_billing.dart';
 import '../data/settings_repository_impl.dart';
 import '../domain/billing.dart';
 import '../domain/settings.dart';
@@ -29,4 +29,4 @@ final ticketsProvider = FutureProvider<List<SupportTicket>>((ref) {
   return ref.watch(settingsRepositoryProvider).tickets();
 });
 
-final billingProvider = Provider<BillingGateway>((ref) => RevenueCatBilling());
+final billingProvider = Provider<BillingGateway>((ref) => PlayBilling(ref.watch(apiClientProvider)));

@@ -62,6 +62,11 @@ export const ProfilePatch = z.strictObject({
 });
 export const AiConsentBody = z.strictObject({ granted: z.boolean(), consent_version: z.string().min(1).max(32) });
 
+export const PlayPurchaseBody = z.strictObject({
+  purchase_token: z.string().min(10).max(4096),
+  product_id: z.string().max(200).optional(),
+});
+
 export const DeviceBody = z.strictObject({
   installation_id: z.string().min(8).max(128),
   platform: z.enum(['ios', 'android', 'web']),

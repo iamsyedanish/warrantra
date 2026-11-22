@@ -107,6 +107,12 @@ export const MeController = {
     await billing.restore(a.userId);
     res.json(one(entitlementView(check(await a.db.rpc('get_my_entitlement')) as Record<string, unknown>)));
   },
+  verifyPlayPurchase: async (req: Request, res: Response) => {
+    const a = authOf(req);
+    const b = parseOrThrow(V.PlayPurchaseBody, req.body, 'body');
+    await billing.verifyPlayPurchase(a.userId, b.purchase_token);
+    res.json(one(entitlementView(check(await a.db.rpc('get_my_entitlement')) as Record<string, unknown>)));
+  },
   registerDevice: async (req: Request, res: Response) => {
     const b = parseOrThrow(V.DeviceBody, req.body, 'body');
     const row = check(await authOf(req).db.rpc('register_device', {

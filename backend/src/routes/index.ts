@@ -36,7 +36,7 @@ export function publicRoutes(): Router {
 
 export function webhookRoutes(): Router {
   const r = Router();
-  r.post('/webhooks/revenuecat', wrap(WebhookController.revenuecat));
+  r.post('/webhooks/google-play', wrap(WebhookController.googlePlay));
   r.post('/webhooks/inbound-email', wrap(WebhookController.inboundEmail));
   r.post('/internal/cron/:task', wrap(WebhookController.cron));
   return r;
@@ -60,6 +60,7 @@ export function userRoutes(): Router {
   r.get('/me/annual-summary', wrap(MeController.annualSummary));
   r.get('/me/offer', wrap(MeController.offer));
   r.post('/me/restore-purchases', wrap(MeController.restorePurchases));
+  r.post('/me/purchases/google-play', wrap(MeController.verifyPlayPurchase));
   r.get('/me/devices', wrap(MeController.listDevices));
   r.put('/me/devices', wrap(MeController.registerDevice));
   r.delete('/me/devices/:id', wrap(MeController.removeDevice));

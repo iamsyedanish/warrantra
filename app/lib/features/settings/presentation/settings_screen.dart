@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
+import '../../../app/device_registration.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/utils/format.dart';
@@ -23,6 +24,7 @@ final _versionProvider = FutureProvider<String>((ref) async {
 });
 
 Future<void> signOutEverywhere(BuildContext context, WidgetRef ref) async {
+  await unregisterPush();
   await ref.read(billingProvider).reset();
   await ref.read(sessionProvider.notifier).signOut();
   if (context.mounted) context.go('/signin');
