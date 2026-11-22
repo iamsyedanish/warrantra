@@ -178,7 +178,7 @@ class _WizardState extends ConsumerState<_Wizard> {
               Text("What's wrong?", style: context.t.titleLarge),
               const SizedBox(height: 10),
               WField(label: 'Describe what you see, in your words', controller: issue, maxLines: 5),
-              WDateField(label: 'When did it start?', value: started, onChanged: (v) => setState(() => started = v)),
+              WDateField(notAfterToday: true, label: 'When did it start?', value: started, onChanged: (v) => setState(() => started = v)),
               Text("Warrantra won't add symptoms, causes or legal claims to what you write.", style: TextStyle(fontSize: 12.5, color: c.textSubtle)),
             ],
           1 => [
@@ -228,7 +228,7 @@ class _WizardState extends ConsumerState<_Wizard> {
               const SizedBox(height: 4),
               Text('These come only from what you saved. Edit the item if something is wrong; the pack uses exactly this.', style: TextStyle(color: c.textMuted)),
               const SizedBox(height: 10),
-              if (claim != null) FactsCard(facts: claim!.proposedFacts ?? {}, issue: claim!.issue, startedOn: claim!.issueStartedOn),
+              if (claim != null) FactsCard(facts: claim!.proposedFacts ?? {}, issue: claim!.issue, startedOn: claim!.issueStartedOn, providerName: claim!.providerName, providerContact: claim!.providerContact),
               const SizedBox(height: 10),
               _AiDraftOffer(claimId: claim?.id, idempotencyKey: _draftKey),
             ],
@@ -239,10 +239,14 @@ class _WizardState extends ConsumerState<_Wizard> {
 }
 
 class FactsCard extends StatelessWidget {
-  const FactsCard({super.key, required this.facts, required this.issue, this.startedOn});
+  const FactsCard({super.key, required this.facts, required this.issue, this.startedOn, this.providerName, this.providerContact = const {}});
   final Map<String, dynamic> facts;
   final String issue;
   final String? startedOn;
+
+  /// Who this claim goes to, as entered in the wizard (not part of the item facts).
+  final String? providerName;
+  final Map<String, dynamic> providerContact;
   @override
   Widget build(BuildContext context) {
     final p = facts.m('product'), pu = facts.m('purchase'), cov = facts.m('coverage');
@@ -258,9 +262,12 @@ class FactsCard extends StatelessWidget {
         WKeyValue('Purchased', fmtDate(pu['purchase_date'], empty: 'Not recorded')),
         WKeyValue('Price', pu['price'] == null ? 'Not recorded' : '${fmtMoney(pu['price'], currency: v(pu['currency']))}${pu['price_is_estimated'] == true ? ' (est.)' : ''}'),
         if (cov.isNotEmpty) ...[
-          WKeyValue('Coverage', '${titleCase(v(cov['coverage_type']))} · ${v(cov['provider_name'])}'),
+          WKeyValue('Coverage', '${titleCase(v(cov['coverage_type']))} · ${v(cov['provider_name'] ?? providerName)}'),
           WKeyValue('Coverage dates', '${fmtDate(cov['start_date'], empty: '?')} → ${fmtDate(cov['end_date'], empty: '?')}', note: 'Certainty: ${titleCase(v(cov['date_certainty']))}'),
         ],
+        if (providerName != null || providerContact.isNotEmpty)
+          WKeyValue('Send to', v(providerName),
+              note: ['phone', 'email', 'url', 'address'].map((k) => providerContact[k]).whereType<String>().where((s) => s.trim().isNotEmpty).join(' · ').ifEmpty('Contact not recorded')),
         WKeyValue('Issue started', fmtDate(startedOn, empty: 'Not recorded')),
         WKeyValue('Issue', issue),
       ]),
@@ -304,4 +311,8 @@ class _AiDraftOfferState extends ConsumerState<_AiDraftOffer> {
       ]),
     );
   }
+}
+
+extension _IfEmpty on String {
+  String ifEmpty(String fallback) => isEmpty ? fallback : this;
 }

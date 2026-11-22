@@ -47,7 +47,7 @@ class _ManualEntryScreenState extends ConsumerState<ManualEntryScreen> {
   String? categoryId;
   late String currency = ref.read(meProvider).value?.profile.currency ?? 'USD';
   late String coverage = p?.warranty != null ? 'suggested' : 'unknown';
-  bool more = false, saving = false, nameError = false;
+  bool more = false, saving = false, nameError = false, priceError = false;
   late final List<UploadedFile> files = [
     for (final id in {...?(widget.attachmentId == null ? null : [widget.attachmentId!]), ...?p?.attachmentIds}) UploadedFile(attachmentId: id, state: 'ready', filename: 'Attached document'),
   ];
@@ -80,7 +80,7 @@ class _ManualEntryScreenState extends ConsumerState<ManualEntryScreen> {
         final m = int.parse(coverage);
         final start = purchaseDate;
         if (start == null) return 'Saved as Estimated. Add the purchase date to calculate the end date.';
-        final end = DateTime(start.year, start.month + m, start.day);
+        final end = durationEndDate(start, m);
         return 'Saved as Estimated · ends ${fmtDate(end)}. Edit details later.';
     }
   }
@@ -134,6 +134,7 @@ class _ManualEntryScreenState extends ConsumerState<ManualEntryScreen> {
 
   Future<void> _save() async {
     if (name.text.trim().isEmpty) return setState(() => nameError = true);
+    if (isBadMoney(price.text)) return setState(() => priceError = true);
     setState(() => saving = true);
     String? t(TextEditingController c) => c.text.trim().isEmpty ? null : c.text.trim();
     try {
@@ -187,8 +188,8 @@ class _ManualEntryScreenState extends ConsumerState<ManualEntryScreen> {
       bottom: WButton('Save purchase', loading: saving, onPressed: _save),
       children: [
         WField(label: 'Product name', controller: name, hint: 'e.g. Vitamix 5200', error: nameError ? 'Add a product name to save.' : null, onChanged: (_) => nameError ? setState(() => nameError = false) : null),
-        WDateField(label: 'Purchase date', value: purchaseDate, onChanged: (v) => setState(() => purchaseDate = v)),
-        WField(label: 'Price ($currency)', controller: price, hint: '0.00', keyboardType: const TextInputType.numberWithOptions(decimal: true)),
+        WDateField(notAfterToday: true, label: 'Purchase date', value: purchaseDate, onChanged: (v) => setState(() => purchaseDate = v)),
+        WField(label: 'Price ($currency)', controller: price, hint: '0.00', keyboardType: const TextInputType.numberWithOptions(decimal: true), error: priceError ? badMoneyMessage : null, onChanged: (_) => priceError ? setState(() => priceError = false) : null),
         WChoiceChips<String>(label: 'Coverage', options: _covChips, value: coverage, onChanged: (v) => setState(() => coverage = v)),
         if (_covNote != null) Padding(padding: const EdgeInsets.only(top: 6, bottom: 8), child: Text(_covNote!, style: TextStyle(fontSize: 12.5, color: c.textMuted))),
         const SizedBox(height: 8),

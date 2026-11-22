@@ -292,8 +292,15 @@ class _Preview extends ConsumerWidget {
     if (!doc.isImage || heic) {
       return WCard(
         onTap: () async {
-          final url = await ref.read(vaultRepositoryProvider).url(doc.id);
-          await launchUrl(Uri.parse(url), mode: LaunchMode.inAppBrowserView);
+          // Fetching the short-lived signed link takes a moment; say so, and
+          // surface failures instead of a silent no-op.
+          showToast(context, 'Opening…');
+          try {
+            final url = await ref.read(vaultRepositoryProvider).url(doc.id);
+            await launchUrl(Uri.parse(url), mode: LaunchMode.inAppBrowserView);
+          } catch (e) {
+            if (context.mounted) showFailure(context, e);
+          }
         },
         child: SizedBox(
           height: 160,

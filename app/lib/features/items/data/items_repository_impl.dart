@@ -90,7 +90,10 @@ ItemSummary itemSummaryFromJson(Json j) => ItemSummary(
       nextRegistrationDeadline: j.s('next_registration_deadline'),
       registrationPending: j.b('registration_pending'),
       documentCount: j.i('document_count') ?? 0,
-      hasReceipt: j.b('has_receipt'),
+      // The list view sends has_receipt; the detail endpoint doesn't, so fall
+      // back to the linked documents it does send.
+      hasReceipt: j.b('has_receipt') ||
+          j.l('documents').any((d) => d.s('role') == 'receipt' || d.m('attachments').s('file_type') == 'receipt'),
       createdAt: j.s('created_at'),
     );
 

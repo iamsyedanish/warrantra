@@ -55,7 +55,13 @@ Future<PickedFile?> pickFile(PickSource source) async {
   }
   if (x == null) return null;
   final bytes = await x.readAsBytes();
-  final name = x.name.isEmpty ? 'photo.jpg' : x.name;
+  // The picker hands back temp names like "image_picker_9F0D…jpg". Users see
+  // this name in the vault and claim packs, so give it a readable one.
+  final ext = x.name.contains('.') ? x.name.substring(x.name.lastIndexOf('.')) : '.jpg';
+  final now = DateTime.now();
+  final stamp = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')} '
+      '${now.hour.toString().padLeft(2, '0')}.${now.minute.toString().padLeft(2, '0')}.${now.second.toString().padLeft(2, '0')}';
+  final name = x.name.isEmpty || x.name.startsWith('image_picker_') ? 'Photo $stamp$ext' : x.name;
   return _validate(PickedFile(bytes, name, mimeFor(name) ?? x.mimeType ?? 'image/jpeg'));
 }
 

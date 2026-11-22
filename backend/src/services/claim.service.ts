@@ -23,7 +23,7 @@ export const TEMPLATE_VERSION = 'claim-template-v1';
 
 const DISCLAIMER =
   'Prepared by the customer using Warrantra. Warrantra is not an insurer, lawyer or manufacturer, does not submit claims, ' +
-  'and does not determine eligibility or legal rights. Facts below were reviewed by the customer; items marked "estimated" or "unknown" were not verified.';
+  'and does not determine eligibility or legal rights. Facts above were reviewed by the customer; items marked "estimated" or "unknown" were not verified.';
 
 export async function createClaim(db: Db, userId: string, body: z.infer<typeof ClaimCreateBody>) {
   const item = check(await db.from('items').select('id, name, brand, brand_id').eq('id', body.item_id).maybeSingle()) as Row | null;
@@ -115,10 +115,21 @@ export function renderClaimText(claim: Row, facts: Record<string, any>, evidence
     `  Price paid: ${pu.price ? `${pu.price} ${val(pu.currency)}${pu.price_is_estimated ? ' (estimated allocation from a multi-item receipt)' : ''}` : 'Not recorded'}`,
     '',
   ];
+  // Who the customer is sending this to, as entered for this claim.
+  const contact = (claim.provider_contact ?? {}) as Record<string, unknown>;
+  const contactBits = ['phone', 'email', 'url', 'address'].map((k) => contact[k]).filter((v) => typeof v === 'string' && v.trim());
+  if (claim.provider_name || contactBits.length) {
+    lines.push(
+      'SENT TO',
+      `  Provider: ${val(claim.provider_name)}`,
+      `  Contact: ${contactBits.length ? contactBits.join(' · ') : 'Not recorded'}`,
+      '',
+    );
+  }
   if (c) {
     lines.push(
       'COVERAGE (as recorded by the customer)',
-      `  Type: ${val(c.coverage_type)}  Provider: ${val(c.provider_name)}`,
+      `  Type: ${val(c.coverage_type)}  Provider: ${val(c.provider_name ?? claim.provider_name)}`,
       `  Term: ${val(c.term_kind)}  Start: ${val(c.start_date)}  End: ${val(c.end_date)}  Date certainty: ${val(c.date_certainty)}`,
       `  Policy number: ${val(c.policy_number)}`,
       c.conditional_terms ? `  Conditions: ${c.conditional_terms}` : '',
@@ -152,7 +163,8 @@ function textToPdf(text: string, title: string): Promise<Buffer> {
     doc.moveDown(0.5).fontSize(10).fillColor('#444').text(`Generated ${new Date().toISOString().slice(0, 10)} · ${TEMPLATE_VERSION}`);
     doc.moveDown().fillColor('#000').fontSize(11);
     for (const line of text.split('\n')) {
-      if (/^[A-Z ()]+$/.test(line.trim()) && line.trim().length > 2) doc.moveDown(0.4).font('Helvetica-Bold').text(line.trim()).font('Helvetica');
+      // Section headings: an ALL-CAPS label, optionally followed by a note in brackets.
+      if (/^[A-Z][A-Z ]{2,}(\s\([^)]*\))?$/.test(line.trim())) doc.moveDown(0.4).font('Helvetica-Bold').text(line.trim()).font('Helvetica');
       else doc.text(line);
     }
     doc.end();

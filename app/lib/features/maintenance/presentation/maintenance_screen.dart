@@ -78,7 +78,7 @@ class MaintenanceScreen extends ConsumerWidget {
               onChanged: (v) => set(() => type = v),
             ),
             const SizedBox(height: 8),
-            WDateField(label: 'Date', value: date, onChanged: (v) => set(() => date = v), allowClear: false),
+            WDateField(notAfterToday: true, label: 'Date', value: date, onChanged: (v) => set(() => date = v), allowClear: false),
             WField(label: 'Provider', controller: provider),
             WField(label: 'What was done', controller: desc, maxLines: 2),
             WField(label: 'Cost', controller: cost, keyboardType: const TextInputType.numberWithOptions(decimal: true)),
@@ -86,6 +86,10 @@ class MaintenanceScreen extends ConsumerWidget {
           ]),
         ));
     if (ok != true || itemId == null) return;
+    if (isBadMoney(cost.text)) {
+      if (context.mounted) showToast(context, badMoneyMessage);
+      return;
+    }
     try {
       final money = normalizeMoney(cost.text);
       await ref.read(maintenanceRepositoryProvider).addRecord({

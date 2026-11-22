@@ -63,12 +63,15 @@ class _ReviewFormState extends ConsumerState<_ReviewForm> {
   String _evidence(DraftField f) => switch (f.status) {
         'extracted' => f.evidence == null ? 'Found on the document' : '“${f.evidence}”',
         'rejected' => 'Could not be verified, left empty',
+        // Seen on the document but not safe to guess (e.g. 11/02 could be Nov 2 or Feb 11).
+        _ when f.evidence != null && f.evidence!.trim().isNotEmpty => 'Unclear on the receipt: “${f.evidence}”. Please enter it.',
         _ => 'Not found, left empty',
       };
 
   Future<void> _save() async {
     final chosen = lines.where((l) => l.on && l.name.text.trim().isNotEmpty).toList();
     if (chosen.isEmpty) return showToast(context, 'Choose at least one line to track and give it a name.');
+    if (isBadMoney(total.text) || lines.any((l) => isBadMoney(l.amount.text))) return showToast(context, badMoneyMessage);
     setState(() => saving = true);
     final d = widget.draft;
     try {
@@ -124,7 +127,7 @@ class _ReviewFormState extends ConsumerState<_ReviewForm> {
         WNote('Nothing is saved until you confirm. Check each field against the receipt.', icon: PhosphorIconsRegular.eye),
         const SizedBox(height: 14),
         WField(label: 'Merchant', controller: merchant, helper: _evidence(d.merchant)),
-        WDateField(label: 'Purchase date', value: purchaseDate, onChanged: (v) => setState(() => purchaseDate = v), helper: _evidence(d.purchaseDate)),
+        WDateField(notAfterToday: true, label: 'Purchase date', value: purchaseDate, onChanged: (v) => setState(() => purchaseDate = v), helper: _evidence(d.purchaseDate)),
         WField(label: 'Order / transaction number', controller: order, helper: _evidence(d.orderNumber)),
         WDateField(label: 'Delivery date', value: deliveryDate, onChanged: (v) => setState(() => deliveryDate = v), hint: 'Not found', helper: _evidence(d.deliveryDate)),
         WChoiceChips<String>(label: 'Currency', options: const [('USD', 'USD'), ('CAD', 'CAD'), ('GBP', 'GBP')], value: currency, onChanged: (v) => setState(() => currency = v)),

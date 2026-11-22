@@ -120,15 +120,42 @@ class ApiClient {
     final data = e.response?.data;
     if (data is Map && data['error'] is Map) {
       final err = data['error'] as Map;
-      return Failure(
-        (err['code'] ?? 'error').toString(),
-        (err['message'] ?? 'Something went wrong').toString(),
-        status: e.response?.statusCode,
-        details: err['details'] is Map ? Map<String, dynamic>.from(err['details'] as Map) : null,
-      );
+      final code = (err['code'] ?? 'error').toString();
+      final details = err['details'] is Map ? Map<String, dynamic>.from(err['details'] as Map) : null;
+      final message = code == 'validation_failed'
+          ? validationMessage(details)
+          : (err['message'] ?? 'Something went wrong').toString();
+      return Failure(code, message, status: e.response?.statusCode, details: details);
     }
     return Failure('http_${e.response?.statusCode ?? 0}', 'Something went wrong. Please try again.', status: e.response?.statusCode);
   }
+}
+
+/// Turns a server `validation_failed` payload into a sentence a person can act on,
+/// instead of the raw "Invalid body". Names the first offending field.
+String validationMessage(Map<String, dynamic>? details) {
+  final issues = details?['issues'];
+  if (issues is! List || issues.isEmpty) return 'Some details look wrong. Check the form and try again.';
+  final first = issues.first is Map ? issues.first as Map : const {};
+  final path = (first['path'] ?? '').toString();
+  final field = path.split('.').where((p) => p.isNotEmpty && int.tryParse(p) == null).lastOrNull ?? '';
+  const hints = <String, String>{
+    'email': 'Enter a valid email address.',
+    'password': 'Check your password.',
+    'registration_url': 'The registration link must be a web address starting with https://',
+    'source_url': 'The link must be a web address starting with https://',
+    'url': 'The link must be a web address starting with https://',
+    'purchase_price': 'Enter the price as a number, like 749.99.',
+    'line_amount': 'Enter the price as a number, like 749.99.',
+    'amount': 'Enter the amount as a number, like 49.99.',
+    'refund_amount': 'Enter the amount as a number, like 49.99.',
+    'window_days': 'Enter the number of days in the return window.',
+    'return_deadline': 'Pick a valid return deadline.',
+  };
+  if (hints.containsKey(field)) return hints[field]!;
+  if (field.isEmpty) return 'Some details look wrong. Check the form and try again.';
+  final label = field.replaceAll('_', ' ');
+  return 'Check the ${label[0].toUpperCase()}${label.substring(1).toLowerCase()} field and try again.';
 }
 
 final apiClientProvider = Provider<ApiClient>((ref) => ApiClient(ref.watch(secureStoreProvider)));

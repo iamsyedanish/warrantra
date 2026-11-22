@@ -54,6 +54,7 @@ class _FormState extends ConsumerState<_Form> {
 
   Future<void> _save() async {
     if (name.text.trim().isEmpty) return showToast(context, 'Add a product name.');
+    if (isBadMoney(price.text)) return showToast(context, badMoneyMessage);
     setState(() => saving = true);
     String? t(TextEditingController c) => c.text.trim().isEmpty ? null : c.text.trim();
     try {
@@ -104,7 +105,7 @@ class _FormState extends ConsumerState<_Form> {
         ],
         WField(label: 'Retailer', controller: retailer),
         WField(label: 'Order number', controller: order),
-        WDateField(label: 'Purchase date', value: purchased, onChanged: (v) => setState(() => purchased = v)),
+        WDateField(notAfterToday: true, label: 'Purchase date', value: purchased, onChanged: (v) => setState(() => purchased = v)),
         WDateField(label: 'Delivery date', value: delivered, onChanged: (v) => setState(() => delivered = v)),
         WField(label: 'Line price', controller: price, keyboardType: const TextInputType.numberWithOptions(decimal: true)),
         WChoiceChips<String>(label: 'Currency', options: const [('USD', 'USD'), ('CAD', 'CAD'), ('GBP', 'GBP')], value: currency, onChanged: (v) => setState(() => currency = v)),

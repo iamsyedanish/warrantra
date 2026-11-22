@@ -59,8 +59,8 @@ class CertBadge extends StatelessWidget {
   final bool long;
 
   static (String, String, IconData, WTagKind) describe(String? c) => switch (c) {
-    'document_verified' => ('Verified', 'Verified from document', PhosphorIconsRegular.sealCheck, WTagKind.accent),
-    'user_confirmed' => ('Confirmed', 'You confirmed', PhosphorIconsRegular.userCheck, WTagKind.neutral),
+    'document_verified' => ('Date verified', 'Verified from document', PhosphorIconsRegular.sealCheck, WTagKind.accent),
+    'user_confirmed' => ('Date confirmed', 'Confirmed by you', PhosphorIconsRegular.userCheck, WTagKind.neutral),
     'estimated' => ('Estimated', 'Estimated', PhosphorIconsRegular.circleDashed, WTagKind.outline),
     _ => ('Unknown', 'Unknown', PhosphorIconsRegular.question, WTagKind.neutral),
   };
@@ -268,16 +268,22 @@ class WKeyValue extends StatelessWidget {
             width: 110,
             child: Text(k, style: TextStyle(fontSize: 13.5, color: c.textMuted)),
           ),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(v, style: TextStyle(fontSize: 14.5, color: c.text)),
-                if (note != null) Text(note!, style: TextStyle(fontSize: 12, color: c.textSubtle)),
-              ],
+          // A trailing-only row (empty value) gives the trailing widget the whole
+          // value column so badges like "Verified from document" don't truncate.
+          if (v.isEmpty && note == null && trailing != null)
+            Expanded(child: Align(alignment: Alignment.centerLeft, child: trailing!))
+          else ...[
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(v, style: TextStyle(fontSize: 14.5, color: c.text)),
+                  if (note != null) Text(note!, style: TextStyle(fontSize: 12, color: c.textSubtle)),
+                ],
+              ),
             ),
-          ),
-          if (trailing != null) Flexible(child: trailing!),
+            if (trailing != null) Flexible(child: trailing!),
+          ],
         ],
       ),
     );

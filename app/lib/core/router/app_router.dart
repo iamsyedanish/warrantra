@@ -97,7 +97,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       r('/capture/ai-consent', (s) => AiConsentScreen(mode: q(s, 'mode'))),
       r('/capture/ai-limit', (s) => AiLimitScreen(attachmentId: q(s, 'attachment'), reason: q(s, 'reason'))),
       r('/capture/upload-issue', (s) => UploadIssueScreen(failure: s.extra is Failure ? s.extra as Failure : Failure.unknown)),
-      r('/capture/scan/:id', (s) => ProcessingScreen(scanId: s.pathParameters['id']!, attachmentId: q(s, 'attachment'))),
+      r('/capture/scan/:id', (s) => ProcessingScreen(scanId: s.pathParameters['id']!, attachmentId: q(s, 'attachment'), pending: s.extra is PendingScan ? s.extra as PendingScan : null)),
       r('/capture/failed', (s) => ScanFailedScreen(code: q(s, 'code'), attachmentId: q(s, 'attachment'))),
       r('/capture/review/:id', (s) => ReviewScreen(scanId: s.pathParameters['id']!, attachmentId: q(s, 'attachment'))),
       r('/capture/product/:id', (s) => ProductResultScreen(scanId: s.pathParameters['id']!, attachmentId: q(s, 'attachment'))),
@@ -111,7 +111,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       r('/claims/:id', (s) => ClaimDetailScreen(claimId: s.pathParameters['id']!)),
       r('/claims/:id/pack', (s) => ClaimPackScreen(claimId: s.pathParameters['id']!)),
       r('/outcomes', (_) => const OutcomesScreen()),
-      r('/outcomes/new', (s) => OutcomeFormScreen(claimId: q(s, 'claim'), returnId: q(s, 'return'))),
+      r('/outcomes/new', (s) => OutcomeFormScreen(claimId: q(s, 'claim'), returnId: q(s, 'return'), paid: num.tryParse(q(s, 'paid') ?? ''))),
       // Settings
       r('/settings/plan', (_) => const PlanScreen()),
       r('/settings/paywall', (_) => const PaywallScreen()),

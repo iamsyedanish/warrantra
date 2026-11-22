@@ -97,7 +97,7 @@ class _ItemsScreenState extends ConsumerState<ItemsScreen> {
           if (me != null)
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 2, 20, 8),
-              child: Text(me.plan.isPro ? '${me.usage.itemsUsed} items' : me.itemsLine, style: TextStyle(fontSize: 13, color: c.textMuted)),
+              child: Text(me.plan.isPro ? '${me.usage.itemsUsed} of ${me.usage.itemsLimit} items used (incl. returned)' : me.itemsLine, style: TextStyle(fontSize: 13, color: c.textMuted)),
             ),
           if (me != null && !me.plan.isPro)
             Padding(
