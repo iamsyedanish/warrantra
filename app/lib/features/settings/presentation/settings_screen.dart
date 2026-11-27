@@ -5,6 +5,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import '../../../app/device_registration.dart';
+import '../../../core/config/app_config.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/utils/format.dart';
@@ -24,7 +25,7 @@ final _versionProvider = FutureProvider<String>((ref) async {
 });
 
 Future<void> signOutEverywhere(BuildContext context, WidgetRef ref) async {
-  await unregisterPush();
+  await unregisterPush(ref);
   await ref.read(billingProvider).reset();
   await ref.read(sessionProvider.notifier).signOut();
   if (context.mounted) context.go('/signin');
@@ -36,7 +37,9 @@ class SettingsScreen extends ConsumerWidget {
   String _notifLine(Me me) {
     final p = me.profile;
     final on = ['return', 'warranty', 'registration'].where(p.prefEnabled).length;
-    return on == 0 ? 'Off' : '${p.alertTime.substring(0, 5)} · ${p.timezone}';
+    if (on == 0) return 'Off';
+    final h = int.parse(p.alertTime.substring(0, 2)), m = p.alertTime.substring(3, 5);
+    return '${h % 12 == 0 ? 12 : h % 12}:$m ${h < 12 ? 'AM' : 'PM'} · ${p.timezone}';
   }
 
   @override
@@ -73,9 +76,11 @@ class SettingsScreen extends ConsumerWidget {
                             children: [
                               Text(
                                 m.profile.name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: c.text),
                               ),
-                              Text(m.profile.email, style: TextStyle(fontSize: 13, color: c.textMuted)),
+                              Text(m.profile.email, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13, color: c.textMuted)),
                             ],
                           ),
                         ),
@@ -166,26 +171,33 @@ class SettingsScreen extends ConsumerWidget {
                       value: mode,
                       onChanged: (v) => ref.read(themeModeProvider.notifier).set(v),
                     ),
-                    const WSectionHeader('Coming later'),
+                    const WSectionHeader('More'),
                     WGroup(
                       children: [
                         WListRow(
                           icon: PhosphorIconsRegular.usersThree,
                           title: 'Household',
-                          trailing: const WTag('P1', kind: WTagKind.outline),
+                          subtitle: 'Share items with family',
+                          trailing: m.plan.isPro ? null : const WTag('Pro', kind: WTagKind.outline),
                           onTap: () => context.push('/household'),
                         ),
                         WListRow(
                           icon: PhosphorIconsRegular.envelopeSimple,
                           title: 'Email forwarding',
-                          trailing: const WTag('P1', kind: WTagKind.outline),
+                          subtitle: 'Forward e-receipts to your vault',
+                          trailing: !AppConfig.emailForwardingLive
+                              ? const WTag('Soon', kind: WTagKind.outline)
+                              : m.plan.isPro
+                                  ? null
+                                  : const WTag('Pro', kind: WTagKind.outline),
                           onTap: () => context.push('/settings/email-forwarding'),
                         ),
-                        WListRow(icon: PhosphorIconsRegular.tray, title: 'Shared drafts', onTap: () => context.push('/drafts')),
+                        WListRow(icon: PhosphorIconsRegular.tray, title: 'Drafts to review', subtitle: 'Forwarded and shared receipts', onTap: () => context.push('/drafts')),
                         WListRow(
                           icon: PhosphorIconsRegular.buildings,
                           title: 'Properties',
-                          trailing: const WTag('Pilot', kind: WTagKind.outline),
+                          subtitle: 'For landlords and property managers',
+                          trailing: const WTag('Business', kind: WTagKind.outline),
                           onTap: () => context.push('/portfolio'),
                         ),
                       ],

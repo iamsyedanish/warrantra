@@ -72,15 +72,23 @@ class AppTheme {
       ),
       // Compact pill chips as in the prototype (no checkmark, accent outline when selected).
       materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      // Filter chips match the choice pills: soft corners, solid accent when selected.
       chipTheme: ChipThemeData(
-        showCheckmark: false,
+        showCheckmark: true,
+        checkmarkColor: c.onAccent,
         backgroundColor: c.surface,
-        selectedColor: c.accentSoft,
-        labelStyle: TextStyle(fontFamily: 'Inter', fontSize: 13, fontWeight: FontWeight.w500, color: c.text),
-        secondaryLabelStyle: TextStyle(fontFamily: 'Inter', fontSize: 13, fontWeight: FontWeight.w500, color: c.accentSoftText),
+        selectedColor: c.accent,
+        // Material 3 chips resolve the label colour per state (white on the accent fill).
+        labelStyle: TextStyle(
+          fontFamily: 'Inter',
+          fontSize: 13,
+          fontWeight: FontWeight.w500,
+          color: WidgetStateColor.resolveWith((s) => s.contains(WidgetState.selected) ? c.onAccent : c.text),
+        ),
+        secondaryLabelStyle: TextStyle(fontFamily: 'Inter', fontSize: 13, fontWeight: FontWeight.w600, color: c.onAccent),
         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
-        labelPadding: const EdgeInsets.symmetric(horizontal: 8),
-        shape: StadiumBorder(side: BorderSide(color: c.divider)),
+        labelPadding: const EdgeInsets.symmetric(horizontal: 6),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         side: WidgetStateBorderSide.resolveWith((s) => BorderSide(color: s.contains(WidgetState.selected) ? c.accent : c.divider)),
       ),
       progressIndicatorTheme: ProgressIndicatorThemeData(color: c.accent, linearTrackColor: c.accentSoft),

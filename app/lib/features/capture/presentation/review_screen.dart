@@ -37,7 +37,7 @@ class ReviewScreen extends ConsumerWidget {
 }
 
 class _Line {
-  _Line(this.src) : name = TextEditingController(text: src.description ?? ''), amount = TextEditingController(text: src.lineAmount ?? src.unitAmount ?? '');
+  _Line(this.src) : name = TextEditingController(text: productName(src.description)), amount = TextEditingController(text: src.lineAmount ?? src.unitAmount ?? '');
   final DraftLine src;
   final TextEditingController name, amount;
   bool on = true;
@@ -101,7 +101,7 @@ class _ReviewFormState extends ConsumerState<_ReviewForm> {
               'quantity': l.src.quantity ?? 1,
               'unit_amount': l.src.unitAmount,
               'line_amount': normalizeMoney(l.amount.text),
-              'confirmation_state': !l.on ? 'excluded' : (l.name.text.trim() != (l.src.description ?? '') ? 'user_edited' : 'user_confirmed'),
+              'confirmation_state': !l.on ? 'excluded' : (l.name.text.trim() != productName(l.src.description) ? 'user_edited' : 'user_confirmed'),
               'track': l.on && l.name.text.trim().isNotEmpty ? {'name': l.name.text.trim(), 'attachment_ids': [?widget.attachmentId]} : null,
             }
         ],

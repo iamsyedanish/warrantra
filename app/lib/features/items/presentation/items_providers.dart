@@ -45,6 +45,11 @@ extension RefreshItemData on WidgetRef {
     invalidate(recentItemsProvider);
     invalidate(actionCenterProvider);
     invalidate(meProvider);
-    if (itemId != null) invalidate(itemDetailProvider(itemId));
+    // Without an id (an outcome recorded on a return, say), refresh every item page.
+    if (itemId != null) {
+      invalidate(itemDetailProvider(itemId));
+    } else {
+      invalidate(itemDetailProvider);
+    }
   }
 }

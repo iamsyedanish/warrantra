@@ -202,25 +202,34 @@ class _Pill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.w;
+    final radius = BorderRadius.circular(10);
+    // Compact segment: soft corners, solid accent fill + check when selected.
     return Semantics(
       selected: selected,
       button: true,
       child: Material(
-        color: selected ? c.accentSoft : c.surface,
-        shape: StadiumBorder(side: BorderSide(color: selected ? c.accent : c.divider)),
+        color: Colors.transparent,
         child: InkWell(
-          customBorder: const StadiumBorder(),
+          borderRadius: radius,
           onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            curve: Curves.easeOut,
+            padding: EdgeInsets.fromLTRB(selected ? 10 : 13, 8, 13, 8),
+            decoration: BoxDecoration(
+              color: selected ? c.accent : c.surface,
+              borderRadius: radius,
+              border: Border.all(color: selected ? c.accent : c.divider),
+            ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
+                if (selected) ...[Icon(PhosphorIconsBold.check, size: 13, color: c.onAccent), const SizedBox(width: 5)],
                 Flexible(
                   child: Text(
                     text,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w500, color: selected ? c.accentSoftText : c.text),
+                    style: TextStyle(fontSize: 13.5, height: 1.2, fontWeight: selected ? FontWeight.w600 : FontWeight.w500, color: selected ? c.onAccent : c.text),
                   ),
                 ),
               ],

@@ -17,6 +17,7 @@ import '../../../core/widgets/scaffold.dart';
 import '../../account/presentation/account_providers.dart';
 import '../domain/capture.dart';
 import 'add_sheet.dart';
+import '../../vault/presentation/vault_providers.dart';
 import 'capture_providers.dart';
 import 'upload_flow.dart';
 
@@ -227,6 +228,24 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
       final up = await repo.upload(bytes: p.file.bytes, filename: p.file.name, mime: p.file.mime, fileType: p.fileType, idempotencyKey: ApiClient.newIdempotencyKey());
       if (!mounted || _stopped) return;
       setState(() => _attachmentId = up.attachmentId);
+      // Same file saved before: say so before spending an AI read on it again.
+      if (up.duplicateOf != null) {
+        final again = await confirmDialog(
+          context,
+          title: "You've saved this file before",
+          message: 'This exact file is already in your Vault. Reading it again uses 1 AI read.',
+          confirm: 'Read it anyway',
+          icon: PhosphorIconsRegular.copy,
+        );
+        if (!mounted) return;
+        if (!again) {
+          _stopped = true;
+          // Remove the extra copy; the original stays in the Vault.
+          await ref.read(vaultRepositoryProvider).delete(up.attachmentId, confirm: false).catchError((_) {});
+          if (mounted) context.pop();
+          return;
+        }
+      }
       final job = await repo.startScan(attachmentId: up.attachmentId, feature: p.feature, idempotencyKey: ApiClient.newIdempotencyKey());
       if (!mounted || _stopped) return;
       setState(() => _scanId = job.id);

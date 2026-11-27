@@ -48,4 +48,38 @@ void main() {
     });
     test('no details', () => expect(validationMessage(null), contains('Check the form')));
   });
+
+  group('storeName', () {
+    test('title-cases receipt capitals', () {
+      expect(storeName('THE HOME DEPOT'), 'The Home Depot');
+      expect(storeName('BEST BUY'), 'Best Buy');
+      expect(storeName("KOHL'S"), "Kohl's");
+      expect(storeName('LG ELECTRONICS'), 'LG Electronics');
+    });
+    test('leaves typed names and empties alone', () {
+      expect(storeName('Best Buy'), 'Best Buy');
+      expect(storeName('eBay'), 'eBay');
+      expect(storeName('  '), isNull);
+      expect(storeName(null), isNull);
+    });
+  });
+
+  group('docName', () {
+    test('hides machine file names', () {
+      expect(docName('image_picker_C584AFCE-DD71-49D3-A52F-D2B04BB5C971-27282-0000074704B7F1A7.jpg', 'receipt'), 'Receipt photo');
+      expect(docName('PXL_20261115_101010.jpg', 'warranty'), 'Warranty document photo');
+      expect(docName(null, 'manual'), 'Manual');
+    });
+    test('keeps real names', () {
+      expect(docName('Best Buy receipt.pdf', 'receipt'), 'Best Buy receipt.pdf');
+      expect(docName('Dyson V15 manual.pdf', 'manual'), 'Dyson V15 manual.pdf');
+    });
+  });
+
+  test('productName tidies capitalised receipt lines but keeps model codes', () {
+    expect(productName('PHILIPS AIRFRYER HD9252'), 'Philips Airfryer HD9252');
+    expect(productName('BOSCH SMS6ZCI00G DISHWASHER'), 'Bosch SMS6ZCI00G Dishwasher');
+    expect(productName('LG 55" OLED TV'), 'LG 55" OLED TV');
+    expect(productName('Sony WH-1000XM5'), 'Sony WH-1000XM5');
+  });
 }

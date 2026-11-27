@@ -271,16 +271,17 @@ class AnnualScreen extends ConsumerWidget {
                   ]),
                 ),
               );
+          Widget statN(int n, String one, String many) => stat('$n', n == 1 ? one : many);
           final refunds = a.raw['refunds_reported'];
           final refundLine = refunds is Map && refunds.isNotEmpty ? refunds.entries.map((e) => fmtMoney(e.value, currency: e.key.toString())).join(' + ') : null;
           return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             Text('A year of keeping the proof', style: context.t.headlineSmall),
             const SizedBox(height: 14),
-            Row(children: [stat('${a.n('purchases_tracked')}', 'purchases tracked'), const SizedBox(width: 8), stat('${a.n('receipts_stored')}', 'documents kept')]),
+            Row(children: [statN(a.n('purchases_tracked'), 'purchase tracked', 'purchases tracked'), const SizedBox(width: 8), statN(a.n('receipts_stored'), 'document kept', 'documents kept')]),
             const SizedBox(height: 8),
-            Row(children: [stat('${a.n('returns_completed_before_deadline')}', 'returns on time'), const SizedBox(width: 8), stat('${a.n('claims_started')}', 'claims started')]),
+            Row(children: [statN(a.n('returns_completed_before_deadline'), 'return on time', 'returns on time'), const SizedBox(width: 8), statN(a.n('claims_started'), 'claim started', 'claims started')]),
             const SizedBox(height: 8),
-            Row(children: [stat('${a.n('registrations_completed')}', 'registrations done'), const SizedBox(width: 8), stat('${a.raw['outcomes'] is List ? (a.raw['outcomes'] as List).length : a.n('outcomes')}', 'outcomes')]),
+            Row(children: [statN(a.n('registrations_completed'), 'registration done', 'registrations done'), const SizedBox(width: 8), statN(a.raw['outcomes'] is List ? (a.raw['outcomes'] as List).length : a.n('outcomes'), 'outcome', 'outcomes')]),
             const WSectionHeader('Confirmed outcomes'),
             Text(refundLine == null ? 'No refunds recorded yet.' : 'Refunds reported · $refundLine', style: TextStyle(color: c.text)),
             const SizedBox(height: 6),
@@ -413,9 +414,17 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
         ]),
         if (tickets.isNotEmpty) ...[
           const WSectionHeader('Your messages'),
-          for (final t in tickets) WListRow(icon: PhosphorIconsRegular.chatText, title: t.subject, subtitle: '${titleCase(t.status)} · ${fmtDate(t.createdAt)}', caret: false),
+          for (final t in tickets) WListRow(icon: PhosphorIconsRegular.chatText, title: t.subject, subtitle: '${_ticketState(t.status)} · ${fmtDate(t.createdAt)}', caret: false),
         ],
       ],
     );
   }
 }
+
+String _ticketState(String s) => switch (s) {
+      'open' => 'Open',
+      'pending_user' => 'Waiting for your reply',
+      'resolved' => 'Resolved',
+      'closed' => 'Closed',
+      _ => titleCase(s),
+    };

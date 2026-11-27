@@ -26,6 +26,16 @@ class _Choice {
 }
 
 class _CoverageSetupScreenState extends ConsumerState<CoverageSetupScreen> {
+  /// "Returned within 90 days" printed on the receipt: point at that chip (still unselected).
+  late final int? _receiptDays = () {
+    for (final m in widget.args.mentions) {
+      if (!m.toLowerCase().startsWith('return')) continue;
+      final d = int.tryParse(RegExp(r'(\d{1,3})\s*days?', caseSensitive: false).firstMatch(m)?.group(1) ?? '');
+      if (d != null && d > 0 && d <= 365) return d;
+    }
+    return null;
+  }();
+
   late final choices = {for (final id in widget.args.itemIds) id: _Choice()};
   bool saving = false;
 
@@ -81,7 +91,7 @@ class _CoverageSetupScreenState extends ConsumerState<CoverageSetupScreen> {
             'window_days': int.parse(ch.returns),
             'deadline_basis': 'request_by',
             'date_certainty': 'user_confirmed',
-            'source_kind': 'user_entry',
+            'source_kind': int.parse(ch.returns) == _receiptDays ? 'receipt' : 'user_entry',
           });
         }
       }
@@ -119,7 +129,7 @@ class _CoverageSetupScreenState extends ConsumerState<CoverageSetupScreen> {
           const WSectionHeader('Found on the receipt — not confirmed'),
           for (final m in widget.args.mentions) Padding(padding: const EdgeInsets.only(bottom: 6), child: WNote(m, icon: PhosphorIconsRegular.quotes)),
         ],
-        for (final id in widget.args.itemIds) _ItemCard(itemId: id, choice: choices[id]!, onChanged: () => setState(() {})),
+        for (final id in widget.args.itemIds) _ItemCard(itemId: id, choice: choices[id]!, receiptDays: _receiptDays, onChanged: () => setState(() {})),
         const SizedBox(height: 8),
         Row(children: [
           Icon(PhosphorIconsRegular.stack, size: 16, color: c.textSubtle),
@@ -132,7 +142,8 @@ class _CoverageSetupScreenState extends ConsumerState<CoverageSetupScreen> {
 }
 
 class _ItemCard extends ConsumerWidget {
-  const _ItemCard({required this.itemId, required this.choice, required this.onChanged});
+  const _ItemCard({required this.itemId, required this.choice, required this.onChanged, this.receiptDays});
+  final int? receiptDays;
   final String itemId;
   final _Choice choice;
   final VoidCallback onChanged;
@@ -180,7 +191,12 @@ class _ItemCard extends ConsumerWidget {
             ),
           WChoiceChips<String>(
             label: '${item?.summary.retailer ?? 'Store'} return window',
-            options: [('unknown', 'Unknown'), if (r0 != null) ('suggested', 'Use suggestion'), ('14', '14 days'), ('30', '30 days'), ('60', '60 days'), ('90', '90 days')],
+            options: [
+              ('unknown', 'Unknown'),
+              if (r0 != null) ('suggested', 'Use suggestion'),
+              for (final d in {14, 15, 30, 60, 90, ?receiptDays})
+                if (d != 15 || receiptDays == 15) ('$d', d == receiptDays ? '$d days · on receipt' : '$d days'),
+            ],
             value: choice.returns,
             onChanged: (v) {
               choice.returns = v;

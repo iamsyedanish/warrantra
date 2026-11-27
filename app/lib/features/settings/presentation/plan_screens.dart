@@ -76,7 +76,8 @@ class PlanScreen extends ConsumerWidget {
               usage('AI actions', '${u.aiUsed} of ${u.aiLimit}${u.aiPeriod == 'lifetime' ? ' (trial)' : ' this month'}', r(u.aiUsed, u.aiLimit),
                   "One action = one receipt up to 2 pages, or one claim letter. Failed actions don't count."),
               if (!p.isPro) WButton('See Pro', onPressed: () => context.push('/settings/paywall')),
-              if (p.isPro)
+              // Only a store subscription can be managed in the store (not promotional or gifted Pro).
+              if (p.isPro && (p.store == 'play_store' || p.store == 'app_store'))
                 WButton.secondary(Platform.isIOS ? 'Manage in App Store' : 'Manage in Google Play', icon: PhosphorIconsRegular.arrowSquareOut,
                     onPressed: () => launchUrl(
                         Uri.parse(Platform.isIOS ? 'https://apps.apple.com/account/subscriptions' : 'https://play.google.com/store/account/subscriptions'),

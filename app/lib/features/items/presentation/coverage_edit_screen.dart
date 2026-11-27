@@ -82,6 +82,11 @@ class _CoverageFormState extends ConsumerState<_CoverageForm> {
   }
 
   Future<void> _save() async {
+    final m = int.tryParse(months.text.trim());
+    if (kind == 'duration' && (m == null || m < 1 || m > 1200)) {
+      showToast(context, 'Enter how many months it lasts, from 1 to 1,200.');
+      return;
+    }
     setState(() => saving = true);
     String? t(TextEditingController c) => c.text.trim().isEmpty ? null : c.text.trim();
     final body = <String, dynamic>{
@@ -94,7 +99,9 @@ class _CoverageFormState extends ConsumerState<_CoverageForm> {
       'duration_months': kind == 'duration' ? int.tryParse(months.text) : null,
       'end_date': kind == 'fixed_date' ? isoDate(endDate) : null,
       'conditional_terms': t(conditions),
-      'accept_estimate': certainty == 'estimated' ? acceptEstimate : null,
+      // The server takes this flag only for estimates; sending null on other
+      // certainties was rejected, so confirming an estimated warranty failed.
+      if (certainty == 'estimated' && kind != 'unknown') 'accept_estimate': acceptEstimate,
       'policy_number': t(policy),
       'terms_url': t(termsUrl),
       'notes': t(notes),

@@ -23,5 +23,5 @@ extension UsageText on Me {
   String get itemsLine => '${usage.itemsUsed} of ${usage.itemsLimit} items';
   String get aiLine => usage.aiPeriod == 'lifetime'
       ? '${usage.aiLeft} of ${usage.aiLimit} trial AI reads left'
-      : '${usage.aiUsed} of ${usage.aiLimit} AI actions this month';
+      : '${usage.aiLeft} of ${usage.aiLimit} AI reads left this month';
 }
