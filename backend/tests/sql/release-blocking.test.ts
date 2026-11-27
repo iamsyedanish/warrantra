@@ -481,12 +481,20 @@ describe('5. reminder versioning', () => {
 });
 
 describe('6. entitlements', () => {
-  it('cancellation keeps access until expiry; sandbox never grants production access', async () => {
+  it('cancellation keeps access until expiry; sandbox grants access only when test purchases are accepted', async () => {
     const u = await createUser(db, 'billing@example.com');
     await asService(db, (tx) => tx.query(
       `insert into public.entitlements (user_id, entitlement_key, environment, state, renewal_intent, valid_until, store)
        values ($1, 'pro', 'SANDBOX', 'active', 'will_renew', now() + interval '1 month', 'app_store')`, [u]));
+    const acceptTests = (on: boolean) => db.query(`update public.system_settings set value = $1::jsonb where key = 'billing_accept_test_purchases'`, [JSON.stringify(on)]);
+    await acceptTests(false);
     let plan = await asUser(db, u, (tx) => tx.query<{ r: any }>(`select public.get_my_entitlement() as r`));
+    expect(plan.rows[0]!.r.plan_code).toBe('free'); // licence-tester purchase ignored when switched off
+    await acceptTests(true);
+    plan = await asUser(db, u, (tx) => tx.query<{ r: any }>(`select public.get_my_entitlement() as r`));
+    expect(plan.rows[0]!.r.plan_code).toBe('pro'); // and grants Pro when accepted
+    await asService(db, (tx) => tx.query(`delete from public.entitlements where user_id = $1 and environment = 'SANDBOX'`, [u]));
+    plan = await asUser(db, u, (tx) => tx.query<{ r: any }>(`select public.get_my_entitlement() as r`));
     expect(plan.rows[0]!.r.plan_code).toBe('free');
     await asService(db, (tx) => tx.query(
       `insert into public.entitlements (user_id, entitlement_key, environment, state, renewal_intent, valid_until, store)
