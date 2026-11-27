@@ -15,8 +15,18 @@ class PushService {
   final _opened = StreamController<Map<String, dynamic>>.broadcast();
   final _foreground = StreamController<RemoteMessage>.broadcast();
 
-  /// Data of a notification the user tapped (reminder_id, reminder_type, item_id).
+  /// Data of a notification the user tapped while the app was running in the
+  /// background (reminder_id, reminder_type, item_id).
   Stream<Map<String, dynamic>> get opened => _opened.stream;
+
+  Map<String, dynamic>? _launchTap;
+
+  /// The notification tapped to launch the app from closed, once.
+  Map<String, dynamic>? takeLaunchTap() {
+    final t = _launchTap;
+    _launchTap = null;
+    return t;
+  }
 
   /// Messages that arrive while the app is open (Android shows nothing by itself).
   Stream<RemoteMessage> get foreground => _foreground.stream;
@@ -29,8 +39,10 @@ class PushService {
       await Firebase.initializeApp();
       FirebaseMessaging.onMessageOpenedApp.listen((m) => _opened.add(m.data));
       FirebaseMessaging.onMessage.listen(_foreground.add);
+      // A tap that launched the app from closed. Kept until the signed-in shell
+      // takes it: the broadcast stream has no listener yet at this point.
       final initial = await FirebaseMessaging.instance.getInitialMessage();
-      if (initial != null) _opened.add(initial.data);
+      if (initial != null) _launchTap = initial.data;
       _ready = true;
     } catch (e) {
       debugPrint('push init skipped: $e');

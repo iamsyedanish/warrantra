@@ -397,3 +397,76 @@ class WGroup extends StatelessWidget {
     );
   }
 }
+
+/// Gradient header card used at the top of summary screens (plan, year, outcomes,
+/// claims, digest). White text on the brand gradient in both themes.
+class WHeroCard extends StatelessWidget {
+  const WHeroCard({super.key, required this.eyebrow, required this.title, this.icon, this.watermark, this.children = const []});
+  final String eyebrow;
+  final String title;
+  final IconData? icon;
+  final String? watermark;
+  final List<Widget> children;
+
+  static const gradient = LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xFF7B67E3), Color(0xFF4B3CA8)]);
+  static TextStyle muted([double size = 13.5]) => TextStyle(fontSize: size, height: 1.35, color: Colors.white.withValues(alpha: 0.82));
+  static const strong = TextStyle(color: Colors.white, fontWeight: FontWeight.w700);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(22),
+        gradient: gradient,
+        boxShadow: [BoxShadow(color: const Color(0xFF4B3CA8).withValues(alpha: 0.30), blurRadius: 22, offset: const Offset(0, 10))],
+      ),
+      child: Stack(clipBehavior: Clip.none, children: [
+        if (watermark != null)
+          Positioned(
+            right: -6,
+            top: -10,
+            child: Text(watermark!, style: TextStyle(fontSize: 60, fontWeight: FontWeight.w800, height: 1, letterSpacing: -2, color: Colors.white.withValues(alpha: 0.12))),
+          )
+        else if (icon != null)
+          Positioned(right: -8, top: -8, child: Icon(icon, size: 84, color: Colors.white.withValues(alpha: 0.10))),
+        Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.16), borderRadius: BorderRadius.circular(20)),
+            child: Text(eyebrow.toUpperCase(), style: TextStyle(fontSize: 10.5, letterSpacing: 1.2, fontWeight: FontWeight.w700, color: Colors.white.withValues(alpha: 0.95))),
+          ),
+          const SizedBox(height: 12),
+          Text(title, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: Colors.white, height: 1.2)),
+          ...children,
+        ]),
+      ]),
+    );
+  }
+}
+
+/// A coloured rounded square holding an icon (stat tiles, list leaders).
+class WTintIcon extends StatelessWidget {
+  const WTintIcon(this.icon, this.tint, {super.key, this.size = 40, this.muted = false});
+  final IconData icon;
+  final Color tint;
+  final double size;
+  final bool muted;
+  @override
+  Widget build(BuildContext context) => Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(color: tint.withValues(alpha: muted ? 0.08 : 0.16), borderRadius: BorderRadius.circular(size * 0.3)),
+        child: Icon(icon, size: size * 0.52, color: muted ? tint.withValues(alpha: 0.5) : tint),
+      );
+}
+
+/// Palette for tinted icons, readable on light and dark surfaces.
+abstract final class WTint {
+  static const violet = Color(0xFF7C6CE0);
+  static const blue = Color(0xFF3FA7D6);
+  static const green = Color(0xFF2FB38A);
+  static const amber = Color(0xFFE0A33B);
+  static const coral = Color(0xFFE0716C);
+  static const orchid = Color(0xFFB36CE0);
+}

@@ -26,6 +26,28 @@ class AnnualSummary {
   const AnnualSummary(this.raw);
   final Map<String, dynamic> raw;
   int n(String k) => (raw[k] is num) ? (raw[k] as num).toInt() : 0;
+
+  /// Outcomes by type ('refund_received': 2, ...). The server sends a map;
+  /// older payloads sent a count or a list.
+  Map<String, int> get outcomesByType {
+    final o = raw['outcomes'];
+    if (o is Map) return {for (final e in o.entries) e.key.toString(): (e.value is num) ? (e.value as num).toInt() : 0};
+    return const {};
+  }
+
+  int get outcomesCount {
+    final o = raw['outcomes'];
+    if (o is Map) return outcomesByType.values.fold(0, (a, b) => a + b);
+    if (o is List) return o.length;
+    return o is num ? o.toInt() : 0;
+  }
+
+  /// Amounts per currency, e.g. purchase_value_tracked / refunds_reported.
+  Map<String, num> money(String k) {
+    final m = raw[k];
+    if (m is! Map) return const {};
+    return {for (final e in m.entries) if (e.value is num) e.key.toString(): e.value as num};
+  }
 }
 
 class SupportTicket {

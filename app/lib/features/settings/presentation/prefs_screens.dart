@@ -658,19 +658,30 @@ class _PrivacyState extends ConsumerState<PrivacyScreen> with _InstantSave {
   Widget build(BuildContext context) {
     final c = context.w;
     final me = ref.watch(meProvider);
-    Widget point(IconData i, String t) => Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(i, size: 20, color: c.accent),
+    Widget toggle(IconData icon, Color tint, String title, String subtitle, bool value, ValueChanged<bool> onChanged) => Row(children: [
+          WTintIcon(icon, tint, size: 38),
           const SizedBox(width: 12),
           Expanded(
-            child: Text(t, style: TextStyle(color: c.textMuted, height: 1.45)),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(title, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: c.text)),
+              const SizedBox(height: 2),
+              Text(subtitle, style: TextStyle(fontSize: 12.5, height: 1.4, color: c.textMuted)),
+            ]),
           ),
-        ],
-      ),
-    );
+          const SizedBox(width: 8),
+          Switch(value: value, onChanged: onChanged),
+        ]);
+    Widget point(IconData i, Color tint, String title, String body) => Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          WTintIcon(i, tint, size: 34),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(title, style: TextStyle(fontWeight: FontWeight.w600, color: c.text)),
+              const SizedBox(height: 2),
+              Text(body, style: TextStyle(fontSize: 13, color: c.textMuted, height: 1.4)),
+            ]),
+          ),
+        ]);
     return WScreen(
       title: 'Privacy & AI',
       children: [
@@ -681,57 +692,48 @@ class _PrivacyState extends ConsumerState<PrivacyScreen> with _InstantSave {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                WSwitchRow(
-                  title: 'Read receipts with third-party AI',
-                  subtitle: ai
-                      ? 'On: images you choose are sent to our AI provider to fill in fields.'
-                      : 'Off: manual entry only.',
-                  value: ai,
-                  onChanged: _setAi,
-                ),
-                WSwitchRow(
-                  title: 'Share product analytics',
-                  subtitle: 'Counts of screens and actions. Never receipt text, serial numbers or documents.',
-                  value: shown<bool>('analytics', m.profile.analyticsConsent),
-                  onChanged: (v) =>
-                      save('analytics', v, {'analytics_consent': v}),
-                ),
-                const WSectionHeader('How your data is handled'),
-                point(
-                  PhosphorIconsRegular.lockSimple,
-                  'Files are stored privately. Viewing uses links that expire in minutes.',
-                ),
-                point(
-                  PhosphorIconsRegular.chartBar,
-                  'Analytics never include receipt text, serial numbers or document contents.',
-                ),
-                point(
-                  PhosphorIconsRegular.clockCounterClockwise,
-                  'Failed scans, logs and backups follow a published retention schedule.',
-                ),
-                point(
-                  PhosphorIconsRegular.globe,
-                  'You can also request deletion on the web at ${AppConfig.webDeletionUrl.replaceFirst('https://', '')}.',
-                ),
-                Wrap(
-                  spacing: 4,
+                WHeroCard(
+                  eyebrow: 'Privacy',
+                  title: 'Your records stay yours',
+                  icon: PhosphorIconsFill.shieldCheck,
                   children: [
-                    WButton.ghost(
-                      'Privacy policy',
-                      onPressed: () => launchUrl(
-                        Uri.parse(AppConfig.privacyUrl),
-                        mode: LaunchMode.externalApplication,
-                      ),
-                    ),
-                    WButton.ghost(
-                      'Terms',
-                      onPressed: () => launchUrl(
-                        Uri.parse(AppConfig.termsUrl),
-                        mode: LaunchMode.externalApplication,
-                      ),
-                    ),
+                    const SizedBox(height: 6),
+                    Text('Private storage and short-lived links. You choose what AI sees.', style: WHeroCard.muted()),
                   ],
                 ),
+                const SizedBox(height: 22),
+                const WSectionHeader('Your choices'),
+                WCard(
+                  child: Column(children: [
+                    toggle(PhosphorIconsRegular.sparkle, WTint.orchid, 'Read receipts with AI',
+                        ai ? 'On: images you choose are sent to our AI provider to fill in fields.' : 'Off: manual entry only.', ai, _setAi),
+                    Divider(height: 26, color: c.divider),
+                    toggle(PhosphorIconsRegular.chartBar, WTint.blue, 'Share product analytics',
+                        'Counts of screens and actions. Never receipt text, serial numbers or documents.',
+                        shown<bool>('analytics', m.profile.analyticsConsent), (v) => save('analytics', v, {'analytics_consent': v})),
+                  ]),
+                ),
+                const SizedBox(height: 22),
+                const WSectionHeader('How your data is handled'),
+                WCard(
+                  child: Column(children: [
+                    point(PhosphorIconsRegular.lockSimple, WTint.violet, 'Stored privately', 'Files are private to your account. Viewing uses links that expire in minutes.'),
+                    Divider(height: 26, color: c.divider),
+                    point(PhosphorIconsRegular.eyeSlash, WTint.green, 'Analytics stay anonymous', 'Never receipt text, serial numbers or document contents.'),
+                    Divider(height: 26, color: c.divider),
+                    point(PhosphorIconsRegular.clockCounterClockwise, WTint.amber, 'Kept only as long as needed', 'Failed scans, logs and backups follow a published retention schedule.'),
+                    Divider(height: 26, color: c.divider),
+                    point(PhosphorIconsRegular.globe, WTint.coral, 'Delete from anywhere',
+                        'Request deletion on the web at ${AppConfig.webDeletionUrl.replaceFirst('https://', '')}, even without the app.'),
+                  ]),
+                ),
+                const SizedBox(height: 12),
+                Wrap(alignment: WrapAlignment.center, crossAxisAlignment: WrapCrossAlignment.center, children: [
+                  WButton.ghost('Privacy policy',
+                      onPressed: () => launchUrl(Uri.parse(AppConfig.privacyUrl), mode: LaunchMode.externalApplication)),
+                  Text('·', style: TextStyle(color: c.textSubtle)),
+                  WButton.ghost('Terms', onPressed: () => launchUrl(Uri.parse(AppConfig.termsUrl), mode: LaunchMode.externalApplication)),
+                ]),
               ],
             );
           },

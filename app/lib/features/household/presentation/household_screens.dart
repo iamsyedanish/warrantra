@@ -104,7 +104,11 @@ class HouseholdScreen extends ConsumerWidget {
           },
         ),
         const SizedBox(height: 10),
-        Text('Each member gets their own reminders. Items shared here keep their receipts and coverage.', style: TextStyle(fontSize: 12.5, color: c.textSubtle)),
+        Text(
+            kind == 'business'
+                ? 'Each location keeps its own assets, service history and evidence. Team members get their own reminders.'
+                : 'Each member gets their own reminders. Items shared here keep their receipts and coverage.',
+            style: TextStyle(fontSize: 12.5, color: c.textSubtle)),
       ],
     );
   }

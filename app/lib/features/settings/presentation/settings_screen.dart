@@ -11,7 +11,6 @@ import '../../../core/theme/tokens.dart';
 import '../../../core/utils/format.dart';
 import '../../../core/widgets/buttons.dart';
 import '../../../core/widgets/display.dart';
-import '../../../core/widgets/inputs.dart';
 import '../../../core/widgets/scaffold.dart';
 import '../../account/domain/account.dart';
 import '../../account/presentation/account_providers.dart';
@@ -166,11 +165,8 @@ class SettingsScreen extends ConsumerWidget {
                       ],
                     ),
                     const WSectionHeader('Appearance'),
-                    WChoiceChips<ThemeMode>(
-                      options: const [(ThemeMode.system, 'System'), (ThemeMode.dark, 'Dark'), (ThemeMode.light, 'Light')],
-                      value: mode,
-                      onChanged: (v) => ref.read(themeModeProvider.notifier).set(v),
-                    ),
+                    _AppearancePicker(value: mode, onChanged: (v) => ref.read(themeModeProvider.notifier).set(v)),
+                    const SizedBox(height: 12),
                     const WSectionHeader('More'),
                     WGroup(
                       children: [
@@ -205,6 +201,7 @@ class SettingsScreen extends ConsumerWidget {
                     const WSectionHeader('Account'),
                     WGroup(
                       children: [
+                        WListRow(icon: PhosphorIconsRegular.key, title: 'Sign-in methods', onTap: () => context.push('/settings/sign-in-methods')),
                         WListRow(icon: PhosphorIconsRegular.userSwitch, title: 'Switch account', onTap: () => context.push('/settings/switch-account')),
                         WListRow(
                           icon: PhosphorIconsRegular.signOut,
@@ -313,4 +310,144 @@ class SwitchAccountScreen extends ConsumerWidget {
       ],
     );
   }
+}
+
+/// Three preview cards (System / Light / Dark), each a tiny screen drawn in that theme.
+class _AppearancePicker extends StatelessWidget {
+  const _AppearancePicker({required this.value, required this.onChanged});
+  final ThemeMode value;
+  final ValueChanged<ThemeMode> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    const options = [
+      (ThemeMode.system, 'System', PhosphorIconsRegular.deviceMobile),
+      (ThemeMode.light, 'Light', PhosphorIconsRegular.sun),
+      (ThemeMode.dark, 'Dark', PhosphorIconsRegular.moon),
+    ];
+    return Row(children: [
+      for (final (i, (mode, label, icon)) in options.indexed) ...[
+        if (i > 0) const SizedBox(width: 10),
+        Expanded(child: _AppearanceCard(mode: mode, label: label, icon: icon, selected: value == mode, onTap: () => onChanged(mode))),
+      ],
+    ]);
+  }
+}
+
+class _AppearanceCard extends StatelessWidget {
+  const _AppearanceCard({required this.mode, required this.label, required this.icon, required this.selected, required this.onTap});
+  final ThemeMode mode;
+  final String label;
+  final IconData icon;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.w;
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: '$label appearance',
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.fromLTRB(8, 8, 8, 10),
+          decoration: BoxDecoration(
+            color: selected ? c.accentSoft : c.surface,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: selected ? c.accent : c.divider, width: selected ? 2 : 1),
+          ),
+          child: Column(children: [
+            AspectRatio(
+              aspectRatio: 0.82,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: mode == ThemeMode.system
+                    ? Stack(fit: StackFit.expand, children: [
+                        const _MiniScreen(WColors.light),
+                        ClipPath(clipper: _DiagonalHalf(), child: const _MiniScreen(WColors.dark)),
+                      ])
+                    : _MiniScreen(mode == ThemeMode.dark ? WColors.dark : WColors.light),
+              ),
+            ),
+            const SizedBox(height: 10),
+            Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+              Icon(icon, size: 16, color: selected ? c.accent : c.textMuted),
+              const SizedBox(width: 5),
+              Flexible(
+                child: Text(label,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 13.5, fontWeight: selected ? FontWeight.w600 : FontWeight.w500, color: selected ? c.text : c.textMuted)),
+              ),
+            ]),
+            const SizedBox(height: 6),
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              width: 18,
+              height: 18,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: selected ? c.accent : Colors.transparent,
+                border: Border.all(color: selected ? c.accent : c.textSubtle, width: 1.5),
+              ),
+              child: selected ? Icon(PhosphorIconsBold.check, size: 11, color: c.onAccent) : null,
+            ),
+          ]),
+        ),
+      ),
+    );
+  }
+}
+
+/// A tiny screen in the given palette: header, two cards and an accent button.
+class _MiniScreen extends StatelessWidget {
+  const _MiniScreen(this.p);
+  final WColors p;
+
+  @override
+  Widget build(BuildContext context) {
+    Widget bar(double? w, Color color, {double h = 4}) => Container(width: w, height: h, decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(2)));
+    Widget card() => Container(
+          padding: const EdgeInsets.all(5),
+          decoration: BoxDecoration(color: p.surface, borderRadius: BorderRadius.circular(5), border: Border.all(color: p.divider, width: 0.5)),
+          child: Row(children: [
+            Container(width: 10, height: 10, decoration: BoxDecoration(color: p.accentSoft, borderRadius: BorderRadius.circular(3))),
+            const SizedBox(width: 5),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                FractionallySizedBox(widthFactor: 0.9, child: bar(null, p.text.withValues(alpha: 0.75), h: 3)),
+                const SizedBox(height: 3),
+                FractionallySizedBox(widthFactor: 0.6, child: bar(null, p.textSubtle.withValues(alpha: 0.6), h: 3)),
+              ]),
+            ),
+          ]),
+        );
+    return Container(
+      color: p.bg,
+      padding: const EdgeInsets.fromLTRB(7, 9, 7, 7),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        bar(26, p.text.withValues(alpha: 0.85), h: 5),
+        const SizedBox(height: 7),
+        card(),
+        const SizedBox(height: 5),
+        card(),
+        const Spacer(),
+        Container(height: 9, decoration: BoxDecoration(color: p.accent, borderRadius: BorderRadius.circular(4))),
+      ]),
+    );
+  }
+}
+
+/// Lower-right half of the preview (for the System card's light/dark split).
+class _DiagonalHalf extends CustomClipper<Path> {
+  @override
+  Path getClip(Size s) => Path()
+    ..moveTo(s.width, 0)
+    ..lineTo(s.width, s.height)
+    ..lineTo(0, s.height)
+    ..close();
+  @override
+  bool shouldReclip(covariant CustomClipper<Path> oldClipper) => false;
 }

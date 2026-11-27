@@ -212,7 +212,7 @@ class _Settings with _NoWrites implements SettingsRepository {
   @override
   Future<List<DeletionStatus>> deletionStatus() async => const [];
   @override
-  Future<AnnualSummary> annual(int year) async => const AnnualSummary({'purchases_tracked': 8, 'receipts_stored': 11, 'returns_completed_before_deadline': 2, 'claims_started': 1, 'registrations_completed': 1, 'outcomes': 1, 'refunds_reported': {'USD': 699.95}});
+  Future<AnnualSummary> annual(int year) async => const AnnualSummary({'purchases_tracked': 8, 'purchase_value_tracked': {'USD': 4218.40}, 'receipts_stored': 11, 'returns_completed_before_deadline': 2, 'claims_started': 1, 'registrations_completed': 1, 'outcomes': {'refund_received': 1, 'repair_completed': 1}, 'refunds_reported': {'USD': 699.95}});
   @override
   Future<List<SupportTicket>> tickets() async => const [];
 }

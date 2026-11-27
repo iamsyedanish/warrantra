@@ -274,19 +274,88 @@ class ClaimsListScreen extends ConsumerWidget {
         AsyncBody<List<Claim>>(
           value: claims,
           onRetry: () => ref.invalidate(claimsProvider),
-          data: (list) => list.isEmpty
-              ? const WEmpty(icon: PhosphorIconsRegular.lifebuoy, title: 'No claims yet', message: 'Start a claim from an item when something goes wrong. Warrantra assembles the facts; you send it.')
-              : Column(children: [
-                  for (final cl in list)
-                    WListRow(
-                      icon: PhosphorIconsRegular.chatCircleText,
-                      title: cl.itemLabel,
-                      subtitle: [claimKindLabel(cl.kind), claimStatusLabel(cl.status), if (cl.followUpOn != null && !cl.closed) 'follow up ${fmtDayShort(cl.followUpOn)}'].join(' · '),
-                      onTap: () => context.push('/claims/${cl.id}'),
-                    ),
-                ]),
+          data: (list) {
+            if (list.isEmpty) {
+              return const WEmpty(icon: PhosphorIconsRegular.lifebuoy, title: 'No claims yet', message: 'Start a claim from an item when something goes wrong. Warrantra assembles the facts; you send it.');
+            }
+            final open = list.where((c) => !c.closed).toList(), closed = list.where((c) => c.closed).toList();
+            final next = (open.where((c) => c.followUpOn != null).toList()..sort((a, b) => a.followUpOn!.compareTo(b.followUpOn!))).firstOrNull;
+            return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              WHeroCard(
+                eyebrow: 'Claims',
+                title: open.isEmpty ? 'All claims closed' : '${open.length} in progress',
+                icon: PhosphorIconsFill.lifebuoy,
+                children: [
+                  const SizedBox(height: 6),
+                  Text(
+                    next != null
+                        ? 'Next follow-up ${fmtDayShort(next.followUpOn)} · ${next.itemLabel}'
+                        : '${closed.length} closed · ${list.length} in total',
+                    style: WHeroCard.muted(),
+                  ),
+                ],
+              ),
+              if (open.isNotEmpty) ...[
+                const SizedBox(height: 22),
+                const WSectionHeader('In progress'),
+                for (final cl in open) ...[_ClaimCard(cl), const SizedBox(height: 10)],
+              ],
+              if (closed.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                const WSectionHeader('Closed'),
+                for (final cl in closed) ...[_ClaimCard(cl), const SizedBox(height: 10)],
+              ],
+            ]);
+          },
         ),
       ],
+    );
+  }
+}
+
+class _ClaimCard extends StatelessWidget {
+  const _ClaimCard(this.cl);
+  final Claim cl;
+  @override
+  Widget build(BuildContext context) {
+    final c = context.w;
+    final days = daysUntil(cl.followUpOn);
+    final soon = !cl.closed && days != null && days <= 3;
+    return WCard(
+      onTap: () => context.push('/claims/${cl.id}'),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        WTintIcon(cl.closed ? PhosphorIconsRegular.checkCircle : PhosphorIconsRegular.chatCircleText, cl.closed ? WTint.green : WTint.violet),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(cl.itemLabel, maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 15.5, fontWeight: FontWeight.w600, color: c.text)),
+            const SizedBox(height: 2),
+            Text(claimKindLabel(cl.kind), style: TextStyle(fontSize: 13, color: c.textMuted)),
+            const SizedBox(height: 8),
+            Wrap(spacing: 8, runSpacing: 6, crossAxisAlignment: WrapCrossAlignment.center, children: [
+              WTag(claimStatusLabel(cl.status), kind: cl.closed ? WTagKind.outline : WTagKind.accent),
+            ]),
+            if (cl.followUpOn != null && !cl.closed) ...[
+              const SizedBox(height: 8),
+              // One wrapping line (icon inline) so large text never overflows.
+              Text.rich(
+                TextSpan(children: [
+                  WidgetSpan(
+                    alignment: PlaceholderAlignment.middle,
+                    child: Padding(
+                      padding: const EdgeInsets.only(right: 4),
+                      child: Icon(PhosphorIconsRegular.calendarBlank, size: 14, color: soon ? WTint.amber : c.textSubtle),
+                    ),
+                  ),
+                  TextSpan(text: days != null && days < 0 ? 'Follow-up overdue' : 'Follow up ${fmtDayShort(cl.followUpOn)}'),
+                ]),
+                style: TextStyle(fontSize: 12.5, fontWeight: soon ? FontWeight.w600 : FontWeight.w400, color: soon ? WTint.amber : c.textSubtle),
+              ),
+            ],
+          ]),
+        ),
+        Padding(padding: const EdgeInsets.only(top: 10), child: Icon(PhosphorIconsRegular.caretRight, size: 16, color: c.textSubtle)),
+      ]),
     );
   }
 }
@@ -407,44 +476,86 @@ class OutcomesScreen extends ConsumerWidget {
   const OutcomesScreen({super.key});
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final c = context.w;
     final list = ref.watch(outcomesProvider);
     final sum = ref.watch(outcomeSummaryProvider).value;
     final refunds = sum?.refunds.entries.map((e) => fmtMoney(e.value, currency: e.key)).join(' + ');
+    final byType = sum?.byType ?? const <String, int>{};
     return WScreen(
       title: 'Outcomes',
       children: [
-        WCard(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('Confirmed refunds · ${DateTime.now().year}', style: TextStyle(color: c.textMuted)),
+        WHeroCard(
+          eyebrow: 'Outcomes · ${DateTime.now().year}',
+          title: refunds == null || refunds.isEmpty ? 'No refunds yet' : refunds,
+          icon: PhosphorIconsFill.trophy,
+          children: [
             const SizedBox(height: 4),
-            Text(refunds == null || refunds.isEmpty ? fmtMoney(0) : refunds, style: context.t.headlineMedium),
-            const SizedBox(height: 4),
-            Text("Only amounts you confirmed. Purchase value isn't counted as money saved.", style: TextStyle(fontSize: 12.5, color: c.textSubtle)),
-          ]),
+            Text(refunds == null || refunds.isEmpty ? 'Record what happened when a return or claim finishes.' : 'Refunds you confirmed',
+                style: WHeroCard.muted()),
+            if (byType.isNotEmpty) ...[
+              const SizedBox(height: 14),
+              Wrap(spacing: 8, runSpacing: 8, children: [
+                for (final e in byType.entries)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.16), borderRadius: BorderRadius.circular(10)),
+                    child: Text('${e.value} · ${outcomeLabel(e.key)}', style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: Colors.white)),
+                  ),
+              ]),
+            ],
+          ],
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 22),
         AsyncBody<List<Outcome>>(
           value: list,
           onRetry: () => ref.invalidate(outcomesProvider),
           data: (os) => os.isEmpty
               ? const WEmpty(icon: PhosphorIconsRegular.chartBar, title: 'No outcomes yet', message: 'When a return or claim finishes, record what happened here.')
-              : Column(children: [
-                  for (final o in os)
-                    WCard(
-                      onTap: o.claimId == null ? null : () => context.push('/claims/${o.claimId}'),
-                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Row(children: [
-                          Expanded(child: Text(outcomeLabel(o.type), style: TextStyle(fontWeight: FontWeight.w500, color: c.text))),
-                          if (o.amount != null) Text(fmtMoney(o.amount, currency: o.currency ?? 'USD'), style: TextStyle(fontWeight: FontWeight.w500, color: c.text)),
-                        ]),
-                        Text('${fmtDate(o.date)} · ${evidenceLabel(o.evidence)}${o.claimId != null ? ' · claim' : o.returnWindowId != null ? ' · return' : ''}', style: TextStyle(fontSize: 12.5, color: c.textMuted)),
-                        if (o.helped != null) Text('Warrantra helped: ${titleCase(o.helped!.replaceAll('yes_', ''))}', style: TextStyle(fontSize: 12, color: c.textSubtle)),
-                      ]),
-                    ),
-                ].expand((w) => [w, const SizedBox(height: 8)]).toList()),
+              : Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                  const WSectionHeader('History'),
+                  for (final o in os) ...[_OutcomeCard(o), const SizedBox(height: 10)],
+                  const SizedBox(height: 4),
+                  const WNote("Only amounts you confirmed. Purchase value isn't counted as money saved.", icon: PhosphorIconsRegular.info),
+                ]),
         ),
       ],
+    );
+  }
+}
+
+class _OutcomeCard extends StatelessWidget {
+  const _OutcomeCard(this.o);
+  final Outcome o;
+  @override
+  Widget build(BuildContext context) {
+    final c = context.w;
+    final (icon, tint) = switch (o.type) {
+      'refund_received' => (PhosphorIconsRegular.currencyCircleDollar, WTint.green),
+      'repair_completed' => (PhosphorIconsRegular.wrench, WTint.blue),
+      'replacement_received' => (PhosphorIconsRegular.arrowsClockwise, WTint.violet),
+      'denied' => (PhosphorIconsRegular.xCircle, WTint.coral),
+      _ => (PhosphorIconsRegular.minusCircle, WTint.amber),
+    };
+    final source = o.claimId != null ? 'Claim' : o.returnWindowId != null ? 'Return' : null;
+    return WCard(
+      onTap: o.claimId == null ? null : () => context.push('/claims/${o.claimId}'),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        WTintIcon(icon, tint),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              Expanded(child: Text(outcomeLabel(o.type), style: TextStyle(fontSize: 15.5, fontWeight: FontWeight.w600, color: c.text))),
+              if (o.amount != null) Text(fmtMoney(o.amount, currency: o.currency ?? 'USD'), style: TextStyle(fontSize: 15.5, fontWeight: FontWeight.w700, color: tint)),
+            ]),
+            const SizedBox(height: 2),
+            Text([fmtDate(o.date), ?source, evidenceLabel(o.evidence)].join(' · '), style: TextStyle(fontSize: 12.5, color: c.textMuted)),
+            if (o.helped != null) ...[
+              const SizedBox(height: 8),
+              WTag('Warrantra helped: ${titleCase(o.helped!.replaceAll('yes_', '').replaceAll('_', ' '))}', kind: WTagKind.outline),
+            ],
+          ]),
+        ),
+      ]),
     );
   }
 }

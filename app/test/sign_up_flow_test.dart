@@ -27,9 +27,15 @@ class FakeAuth implements AuthRepository {
   @override
   Future<void> signIn({required String email, required String password}) async => calls.add('signIn:$email');
   @override
-  Future<void> signInWithProvider(SocialProvider provider) async {}
+  Future<void> signInWithProvider(SocialProvider provider, {bool signUp = false}) async => calls.add('provider:${provider.name}:${signUp ? 'up' : 'in'}');
   @override
   Future<void> sendPasswordReset(String email) async => calls.add('reset:$email');
+  @override
+  Future<List<String>> identities() async => ['email'];
+  @override
+  Future<void> linkProvider(SocialProvider provider, {required String accountEmail}) async => calls.add('link:${provider.name}');
+  @override
+  Future<void> signInAndLink(AccountLinkRequired link, String password) async => calls.add('signInAndLink:${link.email}');
   @override
   Future<void> signOut() async {}
 }
