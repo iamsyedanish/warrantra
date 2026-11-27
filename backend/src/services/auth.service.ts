@@ -28,6 +28,14 @@ function authError(err: { message?: string; status?: number; code?: string } | n
     throw unauthorized('invalid_credentials', 'Email or password is incorrect');
   }
   if (err?.status === 429) throw new AppError(429, 'rate_limited', 'Too many attempts; try again later');
+  // Supabase verified the provider token, then tried to add the identity to the
+  // existing account with that email; guard_identity_linking refused (no link
+  // intent). Supabase reports this only as a generic 500 "unexpected_failure".
+  if (provider && (err?.status === 500 || err?.code === 'unexpected_failure')) {
+    const name = provider === 'google' ? 'Google' : 'Apple';
+    throw new AppError(409, 'account_exists_use_original_sign_in',
+      `An account already uses this ${name} email. Sign in with your email and password, then add ${name} in Settings → Sign-in methods.`);
+  }
   throw new AppError(502, 'auth_provider_error', 'Authentication service error');
 }
 
@@ -66,7 +74,38 @@ export async function signInWithPassword(email: string, password: string) {
 }
 
 /** Native Google / Apple sign-in: exchange the provider ID token for a Supabase session. */
-export async function signInWithIdToken(input: { provider: 'google' | 'apple'; id_token: string; nonce?: string; access_token?: string }) {
+/**
+ * Email claim of a provider ID token, read without verifying it. Only used to
+ * refuse early; Supabase still verifies the token before any session is made.
+ */
+export function idTokenEmail(idToken: string): string | null {
+  try {
+    const payload = JSON.parse(Buffer.from(idToken.split('.')[1] ?? '', 'base64url').toString('utf8')) as { email?: unknown };
+    return typeof payload.email === 'string' && payload.email.includes('@') ? payload.email.trim().toLowerCase() : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function signInWithIdToken(input: {
+  provider: 'google' | 'apple';
+  id_token: string;
+  nonce?: string;
+  access_token?: string;
+  intent?: 'sign_in' | 'sign_up';
+}) {
+  // "Continue with Google" on the Sign in screen must not create an account.
+  if (input.intent === 'sign_in') {
+    const email = idTokenEmail(input.id_token);
+    if (email) {
+      const rows = check(await serviceClient().from('profiles').select('id').eq('email', email).limit(1)) as unknown[];
+      if (rows.length === 0) {
+        const name = input.provider === 'google' ? 'Google' : 'Apple';
+        throw new AppError(404, 'no_account_for_provider_email',
+          `No Warrantra account uses ${email} yet. Tap Create account and choose Continue with ${name} to sign up.`);
+      }
+    }
+  }
   const { data, error } = await freshAnonClient().auth.signInWithIdToken({
     provider: input.provider,
     token: input.id_token,

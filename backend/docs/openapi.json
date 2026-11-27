@@ -233,6 +233,13 @@
                   "access_token": {
                     "type": "string",
                     "maxLength": 8192
+                  },
+                  "intent": {
+                    "type": "string",
+                    "enum": [
+                      "sign_in",
+                      "sign_up"
+                    ]
                   }
                 },
                 "required": [

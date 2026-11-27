@@ -32,6 +32,8 @@ export const IdTokenBody = z.strictObject({
   id_token: z.string().min(20).max(8192),
   nonce: z.string().max(256).optional(),
   access_token: z.string().max(8192).optional(),
+  // 'sign_in' never creates an account: the email must already have one.
+  intent: z.enum(['sign_in', 'sign_up']).optional(),
 });
 export const RefreshBody = z.strictObject({ refresh_token: z.string().min(10).max(4096) });
 export const EmailBody = z.strictObject({ email: z.string().email().max(320) });
