@@ -63,6 +63,7 @@ export function userRoutes(): Router {
   r.post('/me/purchases/google-play', wrap(MeController.verifyPlayPurchase));
   r.get('/me/devices', wrap(MeController.listDevices));
   r.put('/me/devices', wrap(MeController.registerDevice));
+  r.post('/me/devices/test-push', limits.testPush, wrap(MeController.testPush));
   r.delete('/me/devices/:id', wrap(MeController.removeDevice));
   r.post('/me/exports', limits.exports, wrap(MeController.requestExport));
   r.get('/me/exports', wrap(MeController.listExports));

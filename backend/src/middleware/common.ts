@@ -72,5 +72,6 @@ export const limits = {
   api: rateLimit({ windowMs: 60_000, limit: 240, keyGenerator: keyByUserOrIp, standardHeaders: 'draft-7', legacyHeaders: false }),
   uploads: rateLimit({ windowMs: 60 * 60_000, limit: 120, keyGenerator: keyByUserOrIp, standardHeaders: 'draft-7', legacyHeaders: false }),
   ai: rateLimit({ windowMs: 60 * 60_000, limit: 30, keyGenerator: keyByUserOrIp, standardHeaders: 'draft-7', legacyHeaders: false }),
+  testPush: rateLimit({ windowMs: 60 * 60_000, limit: 5, keyGenerator: keyByUserOrIp, standardHeaders: 'draft-7', legacyHeaders: false }),
   exports: rateLimit({ windowMs: 24 * 60 * 60_000, limit: 10, keyGenerator: keyByUserOrIp, standardHeaders: 'draft-7', legacyHeaders: false }),
 };

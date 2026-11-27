@@ -1524,6 +1524,41 @@
         }
       }
     },
+    "/v1/me/devices/test-push": {
+      "post": {
+        "operationId": "MeController_testPush",
+        "tags": [
+          "me"
+        ],
+        "summary": "Test Push",
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK — `{ \"data\": ... }`"
+          },
+          "201": {
+            "description": "Created"
+          },
+          "202": {
+            "description": "Accepted (queued)"
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/me/devices/{id}": {
       "delete": {
         "operationId": "MeController_removeDevice",
