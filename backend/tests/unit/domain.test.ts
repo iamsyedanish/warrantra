@@ -2,7 +2,7 @@ import './setup-env.js';
 import { describe, expect, it } from 'vitest';
 import { PDFDocument } from 'pdf-lib';
 import { addMonths, durationEndDate, isValidIsoDate, parseCandidateDate, todayIn } from '../../src/lib/dates.js';
-import { allocateGroup, allocateProportionally, checkGroupConsistency, fromCents, toCents } from '../../src/lib/money.js';
+import { allocateGroup, allocateProportionally, checkGroupConsistency, fromCents, linesIncludeTax, toCents } from '../../src/lib/money.js';
 import { redactDeep } from '../../src/lib/redact.js';
 import { scrub } from '../../src/lib/logger.js';
 import { computeProfit, PLANNING_CASE } from '../../src/services/profitability/calculator.js';
@@ -39,6 +39,17 @@ describe('money (integer cents, never floats)', () => {
     expect(out.reduce((a, l) => a + (l.itemValueCents ?? 0), 0)).toBe(36800);
     expect(out.every((l) => l.estimated)).toBe(true);
     expect(checkGroupConsistency(lines, { subtotalCents: 35000, taxCents: 2800, shippingCents: 0, discountCents: 1000, totalCents: 36800 })).toEqual([]);
+  });
+  it('does not add VAT again when line prices already include it (UK receipts)', () => {
+    // Currys: 649.00 + 89.99 = 738.99 total, VAT 123.16 printed for information.
+    const lines = [{ lineCents: 64900 }, { lineCents: 8999 }];
+    const group = { subtotalCents: 61583, taxCents: 12316, shippingCents: null, discountCents: null, totalCents: 73899 };
+    expect(linesIncludeTax(lines, group)).toBe(true);
+    const out = allocateGroup(lines, group);
+    expect(out.map((l) => l.itemValueCents)).toEqual([64900, 8999]);
+    expect(out.every((l) => l.taxCents === null && !l.estimated)).toBe(true);
+    // US-style receipt: tax added on top, so it is still allocated.
+    expect(linesIncludeTax([{ lineCents: 20000 }], { subtotalCents: 20000, taxCents: 1600, shippingCents: null, discountCents: null, totalCents: 21600 })).toBe(false);
   });
   it('flags arithmetic inconsistencies without blocking', () => {
     const w = checkGroupConsistency([{ lineCents: 100 }], { subtotalCents: 200, taxCents: null, shippingCents: null, discountCents: null, totalCents: 500 });
