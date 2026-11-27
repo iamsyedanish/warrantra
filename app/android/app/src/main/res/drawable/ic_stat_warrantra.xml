@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Status-bar icon: white shield with a check (Android tints it; only alpha matters). -->
+<!-- Status-bar / notification icon: the Warrantra logo (shield, location pin and
+     parcel box) as a white silhouette. Android tints it; only alpha matters. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
@@ -8,14 +9,20 @@
     <path
         android:fillColor="#00000000"
         android:strokeColor="#FFFFFFFF"
-        android:strokeWidth="2"
+        android:strokeWidth="1.7"
         android:strokeLineJoin="round"
-        android:pathData="M12,2.5L4.5,5.4V11c0,4.7 3.1,8.9 7.5,10.3c4.4,-1.4 7.5,-5.6 7.5,-10.3V5.4Z" />
+        android:pathData="M12,1.6L3.6,4.8V11c0,5.2 3.5,9.9 8.4,11.4c4.9,-1.5 8.4,-6.2 8.4,-11.4V4.8Z" />
     <path
-        android:fillColor="#00000000"
-        android:strokeColor="#FFFFFFFF"
-        android:strokeWidth="2"
-        android:strokeLineCap="round"
-        android:strokeLineJoin="round"
-        android:pathData="M8.6,12.2l2.4,2.4l4.4,-4.6" />
+        android:fillColor="#FFFFFFFF"
+        android:fillType="evenOdd"
+        android:pathData="M12,4.2c-1.35,0 -2.4,1.05 -2.4,2.35c0,1.6 2.4,3.75 2.4,3.75s2.4,-2.15 2.4,-3.75c0,-1.3 -1.05,-2.35 -2.4,-2.35ZM12,5.65a0.9,0.9 0,1 1,0 1.8a0.9,0.9 0,1 1,0 -1.8Z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M12,10.9L15.9,12.75L12,14.6L8.1,12.75Z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M7.7,13.45L11.6,15.3V19.6L7.7,17.75Z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M12.4,15.3L16.3,13.45V17.75L12.4,19.6Z" />
 </vector>

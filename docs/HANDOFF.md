@@ -82,7 +82,9 @@ ops session shares the folder). Ask the user before committing.
    configured (External, **Testing** status; test user = the user's phone Gmail). OAuth clients: Web "Warrantra server"
    `484217401773-oprt7s7e7u3oihukl2ika8a8odbmuiop.apps.googleusercontent.com` (redirect = Supabase `/auth/v1/callback`;
    saved in `app/env/dev.json` as `GOOGLE_SERVER_CLIENT_ID`), and 3 Android clients for `com.warrantra.app` (Play signing,
-   upload, debug SHA-1s). Supabase → Google provider **enabled** with that Client ID (no secret needed for native
+   upload, debug SHA-1s). 2026-11-27: Play builds failed with UNREGISTERED_ON_API_CONSOLE because Play now signs with
+   SHA-1 D5:5E:0B:0C:1F:16:AF:80:5F:E2:6C:CB:87:90:AC:C5:D1:0D:9B:F9 (read from the installed APK), which none of the
+   clients had; added client "Warrantra Android (Play signing, current)" with it. Supabase → Google provider **enabled** with that Client ID (no secret needed for native
    sign-in; add it only if web OAuth is ever used). To open sign-in to everyone: host a
    privacy policy + homepage (warrantra.app doesn't resolve yet), add them on Branding, then Audience → Publish app.
    Optional still: email via Resend (guide step 6), Ops Console finish/commit.

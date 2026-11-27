@@ -120,6 +120,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       r('/settings/privacy', (_) => const PrivacyScreen()),
       r('/settings/export', (_) => const ExportScreen()),
       r('/settings/delete-account', (_) => const DeleteAccountScreen()),
+      r('/settings/sign-in-methods', (_) => const SignInMethodsScreen()),
       r('/settings/annual', (_) => const AnnualScreen()),
       r('/settings/digest', (_) => const DigestScreen()),
       r('/settings/support', (_) => const SupportScreen()),

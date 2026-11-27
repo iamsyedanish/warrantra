@@ -363,6 +363,44 @@ class _ObRow extends StatelessWidget {
 bool get _appleAvailable => AppConfig.appleSignInEnabled && defaultTargetPlatform == TargetPlatform.iOS;
 bool get _googleAvailable => AppConfig.googleServerClientId.isNotEmpty;
 
+/// Continue with Google/Apple, used by Sign in and Create account. A new email
+/// gets a new account. If the email already has a Warrantra account without
+/// this sign-in method, its password is confirmed once and the method added.
+Future<void> continueWithProvider(BuildContext context, WidgetRef ref, SocialProvider provider, {bool signUp = false}) async {
+  final repo = ref.read(authRepositoryProvider);
+  try {
+    await repo.signInWithProvider(provider, signUp: signUp);
+  } on AccountLinkRequired catch (link) {
+    if (!context.mounted) return;
+    final password = await _askLinkPassword(context, link);
+    if (password == null) throw const Failure('cancelled', '');
+    await repo.signInAndLink(link, password);
+    final name = provider == SocialProvider.google ? 'Google' : 'Apple';
+    if (context.mounted) showToast(context, '$name added. Next time, Continue with $name signs you straight in.');
+  }
+}
+
+Future<String?> _askLinkPassword(BuildContext context, AccountLinkRequired link) async {
+  final name = link.provider == SocialProvider.google ? 'Google' : 'Apple';
+  final pw = TextEditingController();
+  final ok = await showWSheet<bool>(context, builder: (ctx) => Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Text('You already have an account', style: ctx.t.titleLarge),
+        const SizedBox(height: 6),
+        Text('${link.email} already has a Warrantra account. Enter its password once to add $name to it. '
+            'After that, Continue with $name signs you straight in.',
+            style: TextStyle(fontSize: 14, height: 1.4, color: ctx.w.textMuted)),
+        const SizedBox(height: 10),
+        WField(label: 'Password', controller: pw, obscure: true, autofillHints: const [AutofillHints.password]),
+        WButton('Add $name and sign in', onPressed: () => Navigator.pop(ctx, true)),
+        const SizedBox(height: 4),
+        WButton.ghost('Forgot password?', onPressed: () {
+          Navigator.pop(ctx, false);
+          context.push('/forgot');
+        }),
+      ]));
+  return ok == true && pw.text.isNotEmpty ? pw.text : null;
+}
+
 class SignInScreen extends ConsumerStatefulWidget {
   const SignInScreen({super.key});
   @override
@@ -403,7 +441,7 @@ class _SignInState extends ConsumerState<SignInScreen> {
             'Continue with Apple',
             icon: PhosphorIconsFill.appleLogo,
             loading: _busy == 'apple',
-            onPressed: _busy != null ? null : () => _run('apple', () => repo.signInWithProvider(SocialProvider.apple)),
+            onPressed: _busy != null ? null : () => _run('apple', () => continueWithProvider(context, ref, SocialProvider.apple)),
           ),
           const SizedBox(height: 10),
         ],
@@ -412,7 +450,7 @@ class _SignInState extends ConsumerState<SignInScreen> {
             'Continue with Google',
             icon: PhosphorIconsBold.googleLogo,
             loading: _busy == 'google',
-            onPressed: _busy != null ? null : () => _run('google', () => repo.signInWithProvider(SocialProvider.google)),
+            onPressed: _busy != null ? null : () => _run('google', () => continueWithProvider(context, ref, SocialProvider.google)),
           ),
         if (_appleAvailable || _googleAvailable)
           Padding(
@@ -499,6 +537,19 @@ class _SignUpState extends ConsumerState<SignUpScreen> {
   bool _checkEmail = false;
 
   bool get _passwordOk => _password.text.length >= 10;
+  String? _provider; // which "Continue with" button is busy
+
+  Future<void> _withProvider(SocialProvider p) async {
+    setState(() => _provider = p.name);
+    try {
+      await continueWithProvider(context, ref, p, signUp: true);
+      ref.read(sessionProvider.notifier).markSignedIn();
+    } catch (e) {
+      if (mounted && !(e is Failure && e.code == 'cancelled')) showFailure(context, e);
+    } finally {
+      if (mounted) setState(() => _provider = null);
+    }
+  }
 
   Future<void> _submit() async {
     if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(_email.text.trim()) || !_passwordOk) {
@@ -539,6 +590,34 @@ class _SignUpState extends ConsumerState<SignUpScreen> {
     return WScreen(
       children: [
         const WHeading('Create your account', subtitle: 'Free includes 10 items, reminders, original files and export.'),
+        if (_appleAvailable) ...[
+          WButton.secondary(
+            'Continue with Apple',
+            icon: PhosphorIconsFill.appleLogo,
+            loading: _provider == 'apple',
+            onPressed: _busy || _provider != null ? null : () => _withProvider(SocialProvider.apple),
+          ),
+          const SizedBox(height: 10),
+        ],
+        if (_googleAvailable)
+          WButton.secondary(
+            'Continue with Google',
+            icon: PhosphorIconsBold.googleLogo,
+            loading: _provider == 'google',
+            onPressed: _busy || _provider != null ? null : () => _withProvider(SocialProvider.google),
+          ),
+        if (_appleAvailable || _googleAvailable)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 18),
+            child: Row(children: [
+              Expanded(child: Divider(color: c.divider)),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                child: Text('or with email', style: TextStyle(fontSize: 12.5, color: c.textSubtle)),
+              ),
+              Expanded(child: Divider(color: c.divider)),
+            ]),
+          ),
         WField(label: 'Name (optional)', controller: _name, autofillHints: const [AutofillHints.name]),
         WField(label: 'Email', controller: _email, keyboardType: TextInputType.emailAddress, autofillHints: const [AutofillHints.email]),
         WField(
@@ -550,7 +629,7 @@ class _SignUpState extends ConsumerState<SignUpScreen> {
           helper: _passwordOk ? '✓ 10+ characters' : 'At least 10 characters',
         ),
         const SizedBox(height: 6),
-        WButton('Create account', loading: _busy, onPressed: _busy ? null : _submit),
+        WButton('Create account', loading: _busy, onPressed: _busy || _provider != null ? null : _submit),
         const SizedBox(height: 14),
         Text(
           "By continuing you agree to the Terms and Privacy Policy. Warrantra stores proof and dates; it isn't insurance and doesn't guarantee claims.",

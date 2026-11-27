@@ -7,7 +7,6 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import '../core/push/push_service.dart';
 import '../core/theme/tokens.dart';
-import '../core/widgets/scaffold.dart';
 import '../features/home/presentation/home_providers.dart';
 import '../features/capture/presentation/add_sheet.dart';
 import 'device_registration.dart';
@@ -30,20 +29,42 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await registerDevice(ref);
       final push = PushService.instance;
-      // A tapped reminder opens its item (or the Action Center).
-      _subs.add(push.opened.listen((data) {
-        if (!mounted) return;
-        final itemId = data['item_id']?.toString() ?? '';
-        context.push(itemId.isEmpty ? '/home' : '/items/$itemId');
-      }));
+      // A tapped reminder opens its item (or the Action Center): from the
+      // background via the stream, from closed via the launch tap.
+      _subs.add(push.opened.listen(_openFromNotification));
+      final launchTap = push.takeLaunchTap();
+      if (launchTap != null) _openFromNotification(launchTap);
       // While the app is open Android shows nothing, so show it in the app.
       _subs.add(push.foreground.listen((m) {
         if (!mounted) return;
         ref.invalidate(actionCenterProvider);
         final title = m.notification?.title;
-        if (title != null) showToast(context, title);
+        if (title == null) return;
+        final body = m.notification?.body;
+        final itemId = m.data['item_id']?.toString() ?? '';
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(SnackBar(
+            duration: const Duration(seconds: 6),
+            content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
+              if (body != null && body.isNotEmpty) ...[const SizedBox(height: 2), Text(body)],
+            ]),
+            action: itemId.isEmpty ? null : SnackBarAction(label: 'View', onPressed: () => _openFromNotification(m.data)),
+          ));
       }));
     });
+  }
+
+  void _openFromNotification(Map<String, dynamic> data) {
+    if (!mounted) return;
+    ref.invalidate(actionCenterProvider);
+    final itemId = data['item_id']?.toString() ?? '';
+    if (itemId.isEmpty) {
+      context.go('/home');
+    } else {
+      context.push('/items/$itemId');
+    }
   }
 
   @override
