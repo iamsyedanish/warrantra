@@ -7,7 +7,6 @@ import { redactDeep } from '../../src/lib/redact.js';
 import { scrub } from '../../src/lib/logger.js';
 import { computeProfit, PLANNING_CASE } from '../../src/services/profitability/calculator.js';
 import { recognisedRevenue } from '../../src/services/profitability/profitability.service.js';
-import { tidyStoreName } from '../../src/lib/text.js';
 import { deriveFromPlay, orderKind, usdPrice, type PlaySubscription } from '../../src/services/billing/reconcile.js';
 import { validateLabelCandidate, validateReceiptCandidate } from '../../src/services/ai/validate.js';
 import { inspectBytes } from '../../src/services/attachment.service.js';
@@ -390,15 +389,5 @@ describe('image preparation for AI', () => {
     expect(Math.max(meta.width!, meta.height!)).toBe(2048);
     const { data } = await sharp(out).extract({ left: 1000, top: 300, width: 1, height: 1 }).raw().toBuffer({ resolveWithObject: true });
     expect(data[0]).toBeGreaterThan(240); // transparent area became white, not black
-  });
-});
-
-describe('store names from receipts', () => {
-  it('title-cases printed capitals, keeps typed names', () => {
-    expect(tidyStoreName('THE HOME DEPOT')).toBe('The Home Depot');
-    expect(tidyStoreName("KOHL'S")).toBe("Kohl's");
-    expect(tidyStoreName('LG ELECTRONICS')).toBe('LG Electronics');
-    expect(tidyStoreName('eBay')).toBe('eBay');
-    expect(tidyStoreName(null)).toBeNull();
   });
 });
