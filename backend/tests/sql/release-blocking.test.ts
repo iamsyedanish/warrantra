@@ -445,6 +445,39 @@ describe('5. reminder versioning', () => {
       `insert into public.notification_deliveries (user_id, reminder_id, schedule_version, channel, destination)
        values ($1, $2, 1, 'push', 'device-1')`, [u, custom.rows[0]!.id])), /duplicate key/);
   });
+
+  it('a reminder already sent is not sent again when the alert time changes', async () => {
+    // The live bug: return window ending tomorrow saved while the alert time had
+    // already passed -> catch-up sent; alert time then moved later today -> the
+    // same "ends tomorrow" reminder was scheduled and sent a second time.
+    await asUser(db, u, (tx) => tx.query(`update public.profiles set alert_local_time = '00:00' where id = $1`, [u]));
+    const rw = await asUser(db, u, (tx) => tx.query<{ id: string }>(
+      `insert into public.return_windows (user_id, item_id, terms_state, policy_anchor, return_deadline, deadline_basis, date_certainty, confirmed_at)
+       values ($1, $2, 'known', 'unknown', (now() at time zone (select timezone from public.profiles where id = $1))::date + 1,
+               'request_by', 'user_confirmed', now()) returning id`, [u, item]));
+    const id = rw.rows[0]!.id;
+    const rows = async () => (await db.query<{ id: string; state: string; offset_days: number }>(
+      `select id, state, offset_days from public.reminders where return_window_id = $1 order by created_at`, [id])).rows;
+    const first = await rows();
+    expect(first).toHaveLength(1); // one catch-up, due now
+    // The worker sends it (provider accepts) ...
+    await db.query(`update public.reminders set due_at = now() - interval '1 second' where id = $1`, [first[0]!.id]);
+    await asService(db, (tx) => tx.query(`select id from public.worker_claim_due_reminders(50)`));
+    await asService(db, (tx) => tx.query(
+      `insert into public.notification_deliveries (user_id, reminder_id, schedule_version, channel, destination, state, accepted_at)
+       values ($1, $2, 1, 'push', 'device-1', 'provider_accepted', now())`, [u, first[0]!.id]));
+    // ... and while it is still being sent the user moves the alert time to later today.
+    await asUser(db, u, (tx) => tx.query(`update public.profiles set alert_local_time = '23:59' where id = $1`, [u]));
+    let now = await rows();
+    expect(now.filter((r) => r.state === 'scheduled')).toHaveLength(0); // no second "ends tomorrow"
+    expect(now.find((r) => r.id === first[0]!.id)!.state).toBe('dispatching'); // not superseded mid-send
+    await asService(db, (tx) => tx.query(`select public.worker_finish_reminder($1, 1, 'dispatched')`, [first[0]!.id]));
+    // A new deadline is a new reminder: moving it out a week schedules again.
+    await asUser(db, u, (tx) => tx.query(`update public.return_windows set return_deadline = return_deadline + 7 where id = $1`, [id]));
+    now = await rows();
+    expect(now.filter((r) => r.state === 'scheduled').length).toBeGreaterThan(0);
+    await asUser(db, u, (tx) => tx.query(`update public.profiles set alert_local_time = '09:00' where id = $1`, [u]));
+  });
 });
 
 describe('6. entitlements', () => {
