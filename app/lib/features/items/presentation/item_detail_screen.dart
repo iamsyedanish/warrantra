@@ -48,10 +48,14 @@ class _Body extends ConsumerWidget {
     final s = d.summary;
     final activeReturns = d.returns.where((r) => !r.dismissed && !['refunded', 'cancelled', 'rejected'].contains(r.state)).toList();
     final pendingRegs = d.registrations.where((g) => !g.done && g.status != 'not_applicable' && g.status != 'dismissed').toList();
-    final overline = [s.brand, if (s.categorySlug != null) titleCase(s.categorySlug!.replaceAll('_', ' & '))].whereType<String>().where((x) => x.isNotEmpty).join(' · ');
+    // The detail response carries category_id only; resolve its name from the category list.
+    final category = (ref.watch(categoriesProvider).value ?? const <Category>[]).where((x) => x.id == d.categoryId).firstOrNull;
+    final categorySlug = s.categorySlug ?? category?.slug;
+    final categoryName = category?.name ?? (s.categorySlug == null ? null : titleCase(s.categorySlug!.replaceAll('_', ' & ')));
+    final overline = [s.brand, categoryName].whereType<String>().where((x) => x.isNotEmpty).join(' · ');
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        IconTile(itemIcon(category: s.categorySlug, name: s.name), size: 52),
+        IconTile(itemIcon(category: categorySlug, name: s.name), size: 52),
         const SizedBox(width: 14),
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -67,12 +71,21 @@ class _Body extends ConsumerWidget {
         if (s.lifecycle != 'owned') WTag(lifecycleLabels[s.lifecycle] ?? s.lifecycle, kind: WTagKind.outline),
         if (s.archived) const WTag('Archived', kind: WTagKind.outline),
         if (s.hasReceipt) const WTag('Receipt saved', icon: PhosphorIconsRegular.receipt) else const WTag('No receipt', kind: WTagKind.outline),
-        if (s.price != null) WTag('${fmtMoney(s.price, currency: s.currency)}${d.priceIsEstimated ? ' (est.)' : ''}'),
+        if (s.price != null) WTag('${fmtMoney(s.price, currency: s.currency)}${d.priceIsEstimated ? ' incl. tax (est.)' : ''}'),
       ]),
       const SizedBox(height: 6),
 
       // ---- Return windows
       for (final r in activeReturns) Padding(padding: const EdgeInsets.only(top: 12), child: _ReturnCard(itemId: s.id, r: r)),
+      // Finished returns stay visible (and openable) instead of disappearing.
+      for (final r in d.returns.where((r) => !activeReturns.contains(r) && !r.dismissed))
+        WListRow(
+          icon: r.state == 'refunded' ? PhosphorIconsRegular.checkCircle : PhosphorIconsRegular.arrowUUpLeft,
+          title: 'Return · ${returnStateLabel(r.state)}',
+          subtitle: [?r.retailer, if (r.deadline != null) 'deadline was ${fmtDate(r.deadline)}'].join(' · '),
+          onTap: () => context.push('/items/${s.id}/return/${r.id}'),
+          dense: true,
+        ),
 
       // ---- Coverage
       WSectionHeader('Coverage', action: 'Add', actionIcon: PhosphorIconsRegular.plus, onAction: () => context.push('/items/${s.id}/coverage/new')),
@@ -104,7 +117,7 @@ class _Body extends ConsumerWidget {
           onTap: () => context.push('/items/${s.id}/registration/new'),
           dense: true,
         ),
-      if (d.returns.isEmpty)
+      if (activeReturns.isEmpty)
         WListRow(
           icon: PhosphorIconsRegular.arrowUUpLeft,
           title: 'Add a return window',
@@ -121,7 +134,7 @@ class _Body extends ConsumerWidget {
         for (final doc in d.documents)
           WListRow(
             icon: docIcon(doc.fileType, doc.mime),
-            title: doc.filename ?? titleCase(doc.fileType),
+            title: docName(doc.filename, doc.fileType),
             subtitle: [titleCase(doc.role), if (doc.pages != null) '${doc.pages} page${doc.pages == 1 ? '' : 's'}', if (doc.state == 'quarantined') 'Held for review']
                 .join(' · '),
             onTap: () => context.push('/vault/${doc.attachmentId}'),
@@ -380,12 +393,12 @@ class _ItemMenu extends ConsumerWidget {
             }
         }
       },
-      itemBuilder: (_) => [
+      itemBuilder: (ctx) => [
         const PopupMenuItem(value: 'edit', child: Text('Edit details')),
         const PopupMenuItem(value: 'lifecycle', child: Text('Returned, sold or gifted…')),
         const PopupMenuItem(value: 'share', child: Text('Share with household')),
         PopupMenuItem(value: 'archive', child: Text(s.archived ? 'Unarchive' : 'Archive')),
-        const PopupMenuItem(value: 'delete', child: Text('Delete item')),
+        PopupMenuItem(value: 'delete', child: Text('Delete item', style: TextStyle(color: ctx.w.danger))),
       ],
     );
   }

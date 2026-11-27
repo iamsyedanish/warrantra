@@ -46,7 +46,7 @@ class _WizardState extends ConsumerState<_Wizard> {
   DateTime? started;
   String? coverage; // 'w:<id>' | 'r:<id>' | 'none'
   final contact = TextEditingController();
-  late final provider = TextEditingController(text: widget.item.summary.brand ?? '');
+  final provider = TextEditingController(); // filled by _select
   late final Set<String> evidence = widget.item.documents.map((d) => d.attachmentId).toSet();
   final extra = <(String, String)>[]; // uploaded claim evidence (id, name)
   Claim? claim;
@@ -60,7 +60,23 @@ class _WizardState extends ConsumerState<_Wizard> {
     super.initState();
     final active = item.warranties.where((w) => w.contractState == 'active').toList();
     final openReturn = item.returns.where((r) => r.state == 'not_started' && (daysUntil(r.deadline) ?? -1) >= 0).toList();
-    coverage = openReturn.isNotEmpty ? 'r:${openReturn.first.id}' : active.isNotEmpty ? 'w:${active.first.id}' : 'none';
+    _select(openReturn.isNotEmpty ? 'r:${openReturn.first.id}' : active.isNotEmpty ? 'w:${active.first.id}' : 'none');
+  }
+
+  // What we last filled in; if the field still shows it, the user hasn't typed their own.
+  String _autoProvider = '';
+
+  /// Picks a coverage and fills Provider from it (the store for a return, the
+  /// warranty provider otherwise) unless the user typed something themselves.
+  void _select(String v) {
+    coverage = v;
+    final r = item.returns.where((x) => 'r:${x.id}' == v).firstOrNull;
+    final w = item.warranties.where((x) => 'w:${x.id}' == v).firstOrNull;
+    final next = r?.retailer ?? w?.provider ?? item.summary.brand ?? '';
+    if (provider.text.trim().isEmpty || provider.text == _autoProvider) {
+      provider.text = next;
+      _autoProvider = next;
+    }
   }
 
   String get _kind {
@@ -188,7 +204,7 @@ class _WizardState extends ConsumerState<_Wizard> {
                 WCheckRow(
                   radio: true,
                   value: coverage == 'r:${r.id}',
-                  onChanged: (_) => setState(() => coverage = 'r:${r.id}'),
+                  onChanged: (_) => setState(() => _select('r:${r.id}')),
                   title: 'Return to ${r.retailer ?? 'the store'}',
                   subtitle: r.deadline == null ? 'Deadline unknown' : '${returnMeaning(r.deadlineBasis)} ${fmtDate(r.deadline)}',
                   trailing: CertBadge(r.certainty),
@@ -197,12 +213,12 @@ class _WizardState extends ConsumerState<_Wizard> {
                 WCheckRow(
                   radio: true,
                   value: coverage == 'w:${w.id}',
-                  onChanged: (_) => setState(() => coverage = 'w:${w.id}'),
+                  onChanged: (_) => setState(() => _select('w:${w.id}')),
                   title: coverageTitle(w),
                   subtitle: '${w.provider ?? ''}${w.provider == null ? '' : ' · '}${coverageRange(w)}${w.timeStatus == 'expired' ? '\nEnded per your records. The provider decides eligibility.' : ''}',
                   trailing: CertBadge(w.certainty),
                 ),
-              WCheckRow(radio: true, value: coverage == 'none', onChanged: (_) => setState(() => coverage = 'none'), title: 'No specific coverage', subtitle: 'Prepare a pack with your proof of purchase'),
+              WCheckRow(radio: true, value: coverage == 'none', onChanged: (_) => setState(() => _select('none')), title: 'No specific coverage', subtitle: 'Prepare a pack with your proof of purchase'),
               const SizedBox(height: 12),
               WField(label: 'Provider', controller: provider),
               WField(label: 'Provider contact (from their terms)', controller: contact, hint: 'Phone, email or claim page'),
@@ -216,7 +232,7 @@ class _WizardState extends ConsumerState<_Wizard> {
                 WCheckRow(
                   value: evidence.contains(d.attachmentId),
                   onChanged: (v) => setState(() => v ? evidence.add(d.attachmentId) : evidence.remove(d.attachmentId)),
-                  title: d.filename ?? titleCase(d.fileType),
+                  title: docName(d.filename, d.fileType),
                   subtitle: titleCase(d.role),
                 ),
               for (final e in extra) WCheckRow(value: true, onChanged: (_) => setState(() => extra.remove(e)), title: e.$2, subtitle: 'Claim evidence'),
@@ -257,10 +273,10 @@ class FactsCard extends StatelessWidget {
         WKeyValue('Brand', v(p['brand'])),
         WKeyValue('Model', v(p['model_number'])),
         WKeyValue('Serial', v(p['serial_number'])),
-        WKeyValue('Retailer', v(pu['retailer'])),
+        WKeyValue('Retailer', storeName(pu['retailer']?.toString()) ?? v(pu['retailer'])),
         WKeyValue('Order', v(pu['order_number'])),
         WKeyValue('Purchased', fmtDate(pu['purchase_date'], empty: 'Not recorded')),
-        WKeyValue('Price', pu['price'] == null ? 'Not recorded' : '${fmtMoney(pu['price'], currency: v(pu['currency']))}${pu['price_is_estimated'] == true ? ' (est.)' : ''}'),
+        WKeyValue('Price', pu['price'] == null ? 'Not recorded' : '${fmtMoney(pu['price'], currency: v(pu['currency']))}${pu['price_is_estimated'] == true ? ' incl. tax (est.)' : ''}'),
         if (cov.isNotEmpty) ...[
           WKeyValue('Coverage', '${titleCase(v(cov['coverage_type']))} · ${v(cov['provider_name'] ?? providerName)}'),
           WKeyValue('Coverage dates', '${fmtDate(cov['start_date'], empty: '?')} → ${fmtDate(cov['end_date'], empty: '?')}', note: 'Certainty: ${titleCase(v(cov['date_certainty']))}'),

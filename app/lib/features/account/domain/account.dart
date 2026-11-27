@@ -123,5 +123,8 @@ abstract interface class AccountRepository {
   Future<void> setAiConsent(bool granted);
   Future<PriceOffer> offer();
   Future<void> restorePurchases();
+
+  /// Sends a sample reminder to this account's phones; returns how many accepted it.
+  Future<int> testPush();
   Future<void> registerDevice({required String installationId, required String platform, required String permission, String? pushToken, String? appVersion, String? timezone});
 }

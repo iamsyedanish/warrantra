@@ -172,6 +172,7 @@ class ClaimDetailScreen extends ConsumerWidget {
       await ref.read(claimsRepositoryProvider).update(cl.id, {'claim_number': number.text.trim().isEmpty ? null : number.text.trim(), 'status': status, 'follow_up_on': isoDate(follow)}, version: cl.version);
       ref.invalidate(claimProvider(cl.id));
       ref.invalidate(claimsProvider);
+      ref.refreshItems(itemId: cl.itemId); // the item page lists this claim's status
       if (context.mounted) showToast(context, 'Claim updated');
     } catch (e) {
       if (context.mounted) showFailure(context, e);
@@ -215,13 +216,13 @@ class ClaimDetailScreen extends ConsumerWidget {
             const SizedBox(height: 14),
             WCard(
               child: Column(children: [
-                row(packed, 'Pack prepared', cl.packs.isEmpty ? null : fmtDate(cl.packs.first.generatedAt)),
+                row(packed, 'Pack prepared', !packed ? null : fmtDate(cl.packs.firstOrNull?.generatedAt ?? cl.history.where((h) => h.to != 'draft').firstOrNull?.at ?? cl.createdAt)),
                 row(cl.sent, 'Sent to provider', cl.submittedAt == null ? null : '${fmtDate(cl.submittedAt)} · you marked', next: packed && !cl.sent),
                 if (cl.outcome == null) ...[
                   row(false, 'Follow up', cl.followUpOn == null ? null : '${fmtDate(cl.followUpOn)} · reminder set', next: cl.sent),
                   row(false, 'Outcome', null),
                 ] else
-                  row(true, outcomeLabel(cl.outcome!.type), '${fmtDate(cl.outcome!.date)} · ${evidenceLabel(cl.outcome!.evidence)}'),
+                  row(true, outcomeLabel(cl.outcome!.type), [if (cl.outcome!.amount != null) fmtMoney(cl.outcome!.amount, currency: cl.outcome!.currency ?? 'USD'), fmtDate(cl.outcome!.date), evidenceLabel(cl.outcome!.evidence)].join(' · ')),
               ]),
             ),
             const SizedBox(height: 10),
@@ -304,7 +305,9 @@ class OutcomeFormScreen extends ConsumerStatefulWidget {
 }
 
 class _OutcomeFormScreenState extends ConsumerState<OutcomeFormScreen> {
-  late String type = widget.returnId != null ? 'refund_received' : 'repair_completed';
+  // Returns and return/refund claims most often end in a refund; warranty claims in a repair.
+  late String type = widget.returnId != null || _claimKind == 'return_refund' ? 'refund_received' : 'repair_completed';
+  String? get _claimKind => widget.claimId == null ? null : ref.read(claimProvider(widget.claimId!)).value?.kind;
   final amount = TextEditingController();
   DateTime? date = DateTime.now();
   String evidence = 'user_reported';

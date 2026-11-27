@@ -173,13 +173,14 @@ class _ReturnTrackState extends ConsumerState<_ReturnTrack> {
         const WSectionHeader('Policy'),
         WCard(
           child: Column(children: [
-            WKeyValue('Window counts from', titleCase(returnAnchorLabel(r.anchor))),
+            WKeyValue('Window counts from',
+                r.anchor == 'unknown' ? (r.deadline != null ? 'A fixed date you entered' : 'Not recorded') : titleCase(returnAnchorLabel(r.anchor))),
             WKeyValue('The deadline means', returnMeaning(r.deadlineBasis)),
             WKeyValue('Source', '', trailing: CertBadge(r.certainty, long: true)),
           ]),
         ),
         const SizedBox(height: 8),
-        Text("A date-only deadline doesn't tell you the cutoff time. Check ${r.retailer ?? "the store"}'s terms if you're returning on the last day.",
+        Text("A date-only deadline doesn't tell you the cutoff time. Check the store's terms${r.retailer == null ? '' : ' (${r.retailer})'} if you're returning on the last day.",
             style: TextStyle(fontSize: 12.5, color: c.textSubtle, height: 1.4)),
         if ((r.returnQuantity ?? 0) > 0) ...[
           const SizedBox(height: 10),
@@ -297,7 +298,14 @@ class _ReturnFormState extends ConsumerState<_ReturnForm> {
         WChoiceChips<String>(options: const [('days', 'Number of days'), ('date', 'A specific date'), ('unknown', 'Unknown')], value: mode, onChanged: (v) => setState(() => mode = v)),
         const SizedBox(height: 10),
         if (mode == 'days') ...[
-          WField(label: 'Days in the window', controller: days, keyboardType: TextInputType.number, hint: "From the store's terms", onChanged: (_) => setState(() {})),
+          WChoiceChips<int>(
+            label: 'Common windows',
+            options: const [(14, '14 days'), (15, '15 days'), (30, '30 days'), (60, '60 days'), (90, '90 days')],
+            value: int.tryParse(days.text.trim()),
+            onChanged: (v) => setState(() => days.text = '$v'),
+          ),
+          const SizedBox(height: 8),
+          WField(label: 'Days in the window', controller: days, keyboardType: TextInputType.number, hint: "Or type the store's number", onChanged: (_) => setState(() {})),
           WChoiceChips<String>(
             label: 'Counts from',
             options: const [('purchase_date', 'Purchase'), ('delivery_date', 'Delivery'), ('custom', 'Another date')],

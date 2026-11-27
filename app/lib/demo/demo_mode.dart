@@ -55,19 +55,32 @@ class _Auth with _NoWrites implements AuthRepository {
 }
 
 class _Account with _NoWrites implements AccountRepository {
+  // Profile edits are kept in memory so settings screens behave like the real app.
+  static final Map<String, dynamic> _edits = {};
+
+  @override
+  Future<void> updateProfile(Map<String, dynamic> patch) async {
+    await Future<void>.delayed(const Duration(milliseconds: 600)); // feel the network
+    final prefs = patch['notification_preferences'];
+    if (prefs is Map) {
+      _edits['notification_preferences'] = {...(_edits['notification_preferences'] as Map? ?? {}), ...prefs};
+    }
+    _edits.addAll({...patch}..remove('notification_preferences'));
+  }
+
   @override
   Future<Me> me() async => Me(
-        profile: const Profile(
+        profile: Profile(
           id: 'demo-user',
           email: 'alex.rivera@example.com',
           displayName: 'Alex Rivera',
           timezone: 'America/New_York',
-          alertTime: '09:00:00',
-          preferences: {},
+          alertTime: '${_edits['alert_local_time'] ?? '09:00'}:00',
+          preferences: Map<String, dynamic>.from(_edits['notification_preferences'] as Map? ?? {}),
           aiConsent: true,
           analyticsConsent: false,
-          country: 'US',
-          currency: 'USD',
+          country: _edits['country_code'] as String? ?? 'US',
+          currency: _edits['default_currency'] as String? ?? 'USD',
           onboardingCompleted: true,
         ),
         plan: const PlanInfo(code: 'free', maxItems: 10, storageBytes: 100 << 20, aiPerMonth: 0, aiTrial: 5, claimPackAssembled: false, aiClaimDraft: false, workspaces: false, emailForwarding: false),
@@ -75,6 +88,8 @@ class _Account with _NoWrites implements AccountRepository {
       );
   @override
   Future<PriceOffer> offer() async => const PriceOffer(annualPrice: 79.99, monthlyPrice: 7.99);
+  @override
+  Future<int> testPush() async => 1;
 }
 
 class _ActionCenter implements ActionCenterRepository {

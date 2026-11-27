@@ -94,7 +94,8 @@ class _ItemsScreenState extends ConsumerState<ItemsScreen> {
               ),
             ]),
           ),
-          if (me != null)
+          // Free shows the count in its usage card below; don't repeat it here.
+          if (me != null && me.plan.isPro)
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 2, 20, 8),
               child: Text(me.plan.isPro ? '${me.usage.itemsUsed} of ${me.usage.itemsLimit} items used (incl. returned)' : me.itemsLine, style: TextStyle(fontSize: 13, color: c.textMuted)),

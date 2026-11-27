@@ -76,7 +76,7 @@ ItemSummary itemSummaryFromJson(Json j) => ItemSummary(
       name: j.str('name'),
       brand: j.s('brand'),
       model: j.s('model_number'),
-      retailer: j.s('retailer_name'),
+      retailer: storeName(j.s('retailer_name')),
       purchaseDate: j.s('purchase_date'),
       price: j.s('purchase_price'),
       currency: j.str('currency', 'USD'),
@@ -122,7 +122,7 @@ Warranty warrantyFromJson(Json w) => Warranty(
 
 ReturnWindow returnFromJson(Json r) => ReturnWindow(
       id: r.str('id'),
-      retailer: r.s('retailer_name'),
+      retailer: storeName(r.s('retailer_name')),
       termsState: r.str('terms_state', 'unknown'),
       anchor: r.str('policy_anchor', 'unknown'),
       anchorDate: r.s('anchor_date'),
@@ -192,6 +192,12 @@ ItemDetail itemDetailFromJson(Json j) {
       );
     }).where((d) => d.attachmentId.isNotEmpty).toList(),
     claims: j.l('claims').map((c) => ClaimRef(id: c.str('id'), status: c.str('status'), kind: c.str('claim_kind'), provider: c.s('provider_name'))).toList(),
-    timeline: j.l('timeline').map((t) => TimelineEvent(date: t.s('event_date'), kind: t.str('event_kind'), label: t.str('label'), certainty: t.s('certainty'))).toList(),
+    timeline: j.l('timeline').map((t) => TimelineEvent(date: t.s('event_date'), kind: t.str('event_kind'), label: _tidyLabel(t.str('label')), certainty: t.s('certainty'))).toList(),
   );
 }
+
+/// Server timeline labels embed the store as printed ("Purchased at BEST BUY").
+String _tidyLabel(String label) => label.replaceAllMapped(
+      RegExp(r"\b[A-Z][A-Z'&]+(?:\s+[A-Z][A-Z'&]+)*\b"),
+      (m) => m[0]!.length < 4 ? m[0]! : storeName(m[0]) ?? m[0]!,
+    );

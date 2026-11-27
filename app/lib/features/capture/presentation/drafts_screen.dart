@@ -31,7 +31,7 @@ class DraftsScreen extends ConsumerWidget {
               WListRow(
                 icon: d.source == 'email_forward' ? PhosphorIconsRegular.envelopeSimple : PhosphorIconsRegular.shareNetwork,
                 title: d.title ?? 'Shared document',
-                subtitle: '${titleCase(d.state)} · ${fmtDate(d.createdAt)}',
+                subtitle: '${_draftState(d.state)} · ${fmtDate(d.createdAt)}',
                 onTap: () {
                   final att = d.attachmentIds.isEmpty ? '' : '?attachment=${d.attachmentIds.first}';
                   if (d.scanJobId != null && d.state == 'ready_for_review') {
@@ -54,3 +54,13 @@ class DraftsScreen extends ConsumerWidget {
     ]);
   }
 }
+
+String _draftState(String s) => switch (s) {
+      'pending' => 'Waiting to be read',
+      'processing' => 'Reading…',
+      'ready_for_review' => 'Ready to review',
+      'confirmed' => 'Saved',
+      'discarded' => 'Discarded',
+      'failed' => "Couldn't read it",
+      _ => titleCase(s),
+    };

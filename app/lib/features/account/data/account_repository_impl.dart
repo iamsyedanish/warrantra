@@ -35,6 +35,9 @@ class AccountRepositoryImpl implements AccountRepository {
   Future<void> restorePurchases() => _api.post<Json>('/me/restore-purchases');
 
   @override
+  Future<int> testPush() async => ((await _api.post<Json>('/me/devices/test-push'))['sent'] as num?)?.toInt() ?? 0;
+
+  @override
   Future<void> registerDevice({required String installationId, required String platform, required String permission, String? pushToken, String? appVersion, String? timezone}) =>
       _api.put<Json>('/me/devices', body: {
         'installation_id': installationId,

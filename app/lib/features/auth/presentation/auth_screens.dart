@@ -66,9 +66,12 @@ class _OnboardingState extends ConsumerState<OnboardingScreen> {
   final _page = PageController();
   int _i = 0;
 
-  Future<void> _finish() async {
+  /// "Get started" leads new users to Create account; "Skip" goes to Sign in.
+  Future<void> _finish({bool signUp = false}) async {
     await ref.read(sharedPrefsProvider).setBool(OnboardingScreen.seenKey, true);
-    if (mounted) context.go('/signin');
+    if (!mounted) return;
+    context.go('/signin');
+    if (signUp) context.push('/signup');
   }
 
   @override
@@ -189,8 +192,14 @@ class _OnboardingState extends ConsumerState<OnboardingScreen> {
                 const SizedBox(width: 8),
                 Text('Warrantra', style: TextStyle(fontWeight: FontWeight.w600, color: c.text)),
                 const Spacer(),
-                if (!last) WButton.ghost('Skip', onPressed: _finish),
-                if (last) const SizedBox(height: 44),
+                // Keep Skip's space on the last page so the header doesn't jump.
+                Visibility(
+                  visible: !last,
+                  maintainSize: true,
+                  maintainAnimation: true,
+                  maintainState: true,
+                  child: WButton.ghost('Skip', onPressed: last ? null : _finish),
+                ),
               ]),
             ),
             Expanded(
@@ -213,7 +222,7 @@ class _OnboardingState extends ConsumerState<OnboardingScreen> {
               padding: const EdgeInsets.fromLTRB(20, 14, 20, 12),
               child: WButton(
                 last ? 'Get started, free' : 'Next',
-                onPressed: () => last ? _finish() : _page.nextPage(duration: const Duration(milliseconds: 280), curve: Curves.easeOut),
+                onPressed: () => last ? _finish(signUp: true) : _page.nextPage(duration: const Duration(milliseconds: 280), curve: Curves.easeOut),
               ),
             ),
           ],

@@ -24,6 +24,10 @@ class AppConfig {
   static const termsUrl = 'https://warrantra.app/terms';
 
   /// Upload limits mirrored from the backend for early, friendly validation.
+  /// Inbound email (receipt forwarding) needs the mail domain and provider set up.
+  /// Until then the feature is shown as coming soon. Build with EMAIL_FORWARDING=true.
+  static const emailForwardingLive = bool.fromEnvironment('EMAIL_FORWARDING');
+
   static const maxFileBytes = 10 * 1024 * 1024;
   static const allowedMime = {'image/jpeg', 'image/png', 'image/heic', 'image/heif', 'application/pdf'};
 }

@@ -19,7 +19,7 @@ IconData itemIcon({String? category, String? name}) {
   if (has(['watch'])) return PhosphorIconsRegular.watch;
   if (has(['camera'])) return PhosphorIconsRegular.camera;
   if (has(['drill', 'saw', 'tool', 'dewalt', 'makita', 'milwaukee', 'ryobi'])) return PhosphorIconsRegular.wrench;
-  if (has(['mixer', 'blender', 'kettle', 'espresso', 'coffee', 'toaster', 'oven', 'microwave'])) return PhosphorIconsRegular.cookingPot;
+  if (has(['mixer', 'blender', 'kettle', 'espresso', 'coffee', 'toaster', 'oven', 'microwave', 'fryer', 'airfryer', 'air fryer', 'cooker'])) return PhosphorIconsRegular.cookingPot;
   if (has(['fridge', 'refrigerator', 'freezer'])) return PhosphorIconsRegular.snowflake;
   if (has(['console', 'playstation', 'xbox', 'switch'])) return PhosphorIconsRegular.gameController;
   return switch (category) {

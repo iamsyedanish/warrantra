@@ -129,9 +129,11 @@ class VaultScreen extends ConsumerWidget {
                       for (final d in list)
                         WListRow(
                           icon: docIcon(d.fileType, d.mime),
-                          title: d.filename ?? typeLabel(d.fileType),
+                          title: docName(d.filename, d.fileType),
                           subtitle: [
                             typeLabel(d.fileType),
+                            // The date tells apart files that share a generic name ("Receipt photo").
+                            if (d.createdAt != null) fmtDate(d.createdAt),
                             if (d.size != null) fmtBytes(d.size),
                             if (d.pages != null && d.isPdf) '${d.pages} pp',
                             if (d.held) 'Held for review' else if (d.itemIds.isEmpty && d.claimIds.isEmpty) 'Not linked' else 'Linked to ${d.itemIds.length + d.claimIds.length}',
@@ -253,7 +255,7 @@ class DocViewerScreen extends ConsumerWidget {
           ]),
           children: [
             Text(typeLabel(d.fileType).toUpperCase(), style: TextStyle(fontSize: 11, letterSpacing: 1, color: c.textSubtle)),
-            Text(d.filename ?? typeLabel(d.fileType), style: context.t.titleLarge),
+            Text(docName(d.filename, d.fileType), style: context.t.titleLarge),
             Text([if (d.size != null) fmtBytes(d.size), if (d.pages != null) '${d.pages} page${d.pages == 1 ? '' : 's'}', 'added ${fmtDate(d.createdAt)}'].join(' · '),
                 style: TextStyle(fontSize: 13, color: c.textMuted)),
             const SizedBox(height: 8),

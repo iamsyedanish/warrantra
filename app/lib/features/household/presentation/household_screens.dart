@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
+import '../../../core/config/app_config.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/utils/format.dart';
 import '../../../core/widgets/buttons.dart';
@@ -55,8 +56,8 @@ class HouseholdScreen extends ConsumerWidget {
     return WScreen(
       title: kind == 'business' ? 'Properties' : 'Household',
       actions: [
-        WIconButton(PhosphorIconsRegular.ticket, tooltip: 'Accept invitation', onPressed: () async {
-          final t = await _ask(context, 'Accept an invitation', 'Invitation code');
+        TextButton(onPressed: () async {
+          final t = await _ask(context, 'Join with an invitation code', 'Invitation code');
           if (t == null) return;
           try {
             await ref.read(householdRepositoryProvider).acceptInvite(t);
@@ -65,7 +66,7 @@ class HouseholdScreen extends ConsumerWidget {
           } catch (e) {
             if (context.mounted) showFailure(context, e);
           }
-        }),
+        }, child: const Text('Join with code')),
       ],
       children: [
         AsyncBody<List<Workspace>>(
@@ -214,6 +215,15 @@ class EmailForwardingScreen extends ConsumerWidget {
       }
     }
 
+    if (!AppConfig.emailForwardingLive) {
+      return WScreen(title: 'Email forwarding', children: [
+        WEmpty(
+          icon: PhosphorIconsRegular.envelopeSimple,
+          title: 'Coming soon',
+          message: "You'll get a private address to forward e-receipts to. Each one becomes a draft you review. Until then, share a receipt PDF to Warrantra or upload it.",
+        ),
+      ]);
+    }
     if (me != null && !me.plan.emailForwarding) {
       return WScreen(title: 'Email forwarding', children: [
         WEmpty(

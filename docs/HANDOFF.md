@@ -95,3 +95,28 @@ cd backend && npm run db:status                                 # migrations
 cd backend && railway variables --service warrantra-api --kv | cut -d= -f1   # names only
 curl -s https://warrantra-api-production.up.railway.app/healthz
 ```
+
+## Live Android test 2026-11-26 (emulator `Warrantra_Pixel`, user's real account)
+Fixed and re-checked on the emulator 2026-11-27 (188 app tests, 37 backend tests pass). App + docs merged to main;
+the backend VAT fix is committed on branch app/design-pass only (main auto-deploys to Railway):
+- Confirming an estimated warranty failed ("Check the Accept estimate field"): `accept_estimate` sent only for estimates;
+  months checked 1–1200. Verified: 24 → 36 months, "I confirmed it", saved, card shows "Date confirmed".
+- Claim status on the item page stayed "Sent": claim updates refresh item pages. Verified: shows "Resolved · Bosch".
+- Cancelled returns vanished and "Add a return window" was hidden: now a "Return · Cancelled" row plus the add link. Verified.
+- Return wording ("A fixed date you entered", "the store's terms (Currys)"). Item header shows category ("BOSCH · APPLIANCES"). Verified.
+- Onboarding: last page's "Get started, free" opens sign-up; header no longer jumps when Skip hides.
+- Pills and choice chips restyled (radius 10, filled accent + check when selected). Verified on registration, filters.
+- Receipt scan warns when the exact file is already in the Vault ("Read it anyway" / cancel deletes the copy).
+  Note: "Choose from photos" re-compresses (quality 85), so a photo-picker copy and a file-picker copy of the same
+  receipt have different bytes and are NOT duplicates. Server check verified via Vault upload ("You already had this exact file").
+- Vault rows show the date; ALL-CAPS receipt names are title-cased on review (`productName`); fryer icon; Items header
+  no longer repeats the Free count.
+- Server (backend/src/lib/money.ts `linesIncludeTax`): VAT-inclusive receipts no longer get tax added again. NOT DEPLOYED.
+Still to do (ask the user first):
+1. Deploy backend: merge the "Don't add VAT twice" commit from app/design-pass into main; also needs the other session's uncommitted test-push route (`/v1/me/devices/test-push` → "Route not
+   found" today) and `npm run db:migrate` for `20261123000024_timeline_order.sql` (same-day timeline is still jumbled:
+   "Claim resolved" listed before "Claim ready to submit").
+2. Terms/Privacy links point to warrantra.app, which doesn't exist yet (needs the website).
+3. Paywall fallback prices show $ for a GBP account (only when Play prices don't load).
+Test data left in the account: an unlinked duplicate "currys_receipt.jpg" in the Vault and a receipt-scan draft
+(created 2026-11-27 while testing duplicates; 2 of 3 trial AI reads now used).
