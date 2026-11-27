@@ -68,11 +68,25 @@ export interface AllocatedLine {
  * always labelled estimated. An item's value is its own line value — the receipt
  * total is never repeated across items.
  */
+/**
+ * True when the line amounts already include tax, as on UK/EU receipts where
+ * prices are VAT-inclusive: every line is known and lines + shipping - discount
+ * add up to the total paid (allowing one cent of rounding per line).
+ */
+export function linesIncludeTax(lines: LineForAllocation[], group: GroupAmounts): boolean {
+  if (group.totalCents === null || !group.taxCents || lines.length === 0) return false;
+  if (lines.some((l) => l.lineCents === null)) return false;
+  const linesSum = lines.reduce((a, l) => a + (l.lineCents ?? 0), 0);
+  const expected = linesSum + (group.shippingCents ?? 0) - (group.discountCents ?? 0);
+  return Math.abs(expected - group.totalCents) <= Math.max(1, lines.length);
+}
+
 export function allocateGroup(lines: LineForAllocation[], group: GroupAmounts): AllocatedLine[] {
   const weights = lines.map((l) => l.lineCents ?? 0);
   const anyKnown = weights.some((w) => w > 0);
   const split = (total: number | null) => (total && anyKnown ? allocateProportionally(total, weights) : null);
-  const tax = split(group.taxCents);
+  // Tax already inside the line prices must not be added a second time.
+  const tax = linesIncludeTax(lines, group) ? null : split(group.taxCents);
   const ship = split(group.shippingCents);
   const disc = split(group.discountCents);
   return lines.map((l, i) => {

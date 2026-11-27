@@ -2,11 +2,12 @@ import './setup-env.js';
 import { describe, expect, it } from 'vitest';
 import { PDFDocument } from 'pdf-lib';
 import { addMonths, durationEndDate, isValidIsoDate, parseCandidateDate, todayIn } from '../../src/lib/dates.js';
-import { allocateGroup, allocateProportionally, checkGroupConsistency, fromCents, toCents } from '../../src/lib/money.js';
+import { allocateGroup, allocateProportionally, checkGroupConsistency, fromCents, linesIncludeTax, toCents } from '../../src/lib/money.js';
 import { redactDeep } from '../../src/lib/redact.js';
 import { scrub } from '../../src/lib/logger.js';
 import { computeProfit, PLANNING_CASE } from '../../src/services/profitability/calculator.js';
 import { recognisedRevenue } from '../../src/services/profitability/profitability.service.js';
+import { tidyStoreName } from '../../src/lib/text.js';
 import { deriveFromPlay, orderKind, usdPrice, type PlaySubscription } from '../../src/services/billing/reconcile.js';
 import { validateLabelCandidate, validateReceiptCandidate } from '../../src/services/ai/validate.js';
 import { inspectBytes } from '../../src/services/attachment.service.js';
@@ -39,6 +40,17 @@ describe('money (integer cents, never floats)', () => {
     expect(out.reduce((a, l) => a + (l.itemValueCents ?? 0), 0)).toBe(36800);
     expect(out.every((l) => l.estimated)).toBe(true);
     expect(checkGroupConsistency(lines, { subtotalCents: 35000, taxCents: 2800, shippingCents: 0, discountCents: 1000, totalCents: 36800 })).toEqual([]);
+  });
+  it('does not add VAT again when line prices already include it (UK receipts)', () => {
+    // Currys: 649.00 + 89.99 = 738.99 total, VAT 123.16 printed for information.
+    const lines = [{ lineCents: 64900 }, { lineCents: 8999 }];
+    const group = { subtotalCents: 61583, taxCents: 12316, shippingCents: null, discountCents: null, totalCents: 73899 };
+    expect(linesIncludeTax(lines, group)).toBe(true);
+    const out = allocateGroup(lines, group);
+    expect(out.map((l) => l.itemValueCents)).toEqual([64900, 8999]);
+    expect(out.every((l) => l.taxCents === null && !l.estimated)).toBe(true);
+    // US-style receipt: tax added on top, so it is still allocated.
+    expect(linesIncludeTax([{ lineCents: 20000 }], { subtotalCents: 20000, taxCents: 1600, shippingCents: null, discountCents: null, totalCents: 21600 })).toBe(false);
   });
   it('flags arithmetic inconsistencies without blocking', () => {
     const w = checkGroupConsistency([{ lineCents: 100 }], { subtotalCents: 200, taxCents: null, shippingCents: null, discountCents: null, totalCents: 500 });
@@ -378,5 +390,15 @@ describe('image preparation for AI', () => {
     expect(Math.max(meta.width!, meta.height!)).toBe(2048);
     const { data } = await sharp(out).extract({ left: 1000, top: 300, width: 1, height: 1 }).raw().toBuffer({ resolveWithObject: true });
     expect(data[0]).toBeGreaterThan(240); // transparent area became white, not black
+  });
+});
+
+describe('store names from receipts', () => {
+  it('title-cases printed capitals, keeps typed names', () => {
+    expect(tidyStoreName('THE HOME DEPOT')).toBe('The Home Depot');
+    expect(tidyStoreName("KOHL'S")).toBe("Kohl's");
+    expect(tidyStoreName('LG ELECTRONICS')).toBe('LG Electronics');
+    expect(tidyStoreName('eBay')).toBe('eBay');
+    expect(tidyStoreName(null)).toBeNull();
   });
 });
