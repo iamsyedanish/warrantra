@@ -175,10 +175,11 @@ class _UsageMeter extends StatelessWidget {
       Expanded(
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
-            Expanded(child: Text(title, style: TextStyle(fontWeight: FontWeight.w600, color: c.text))),
+            Expanded(flex: 2, child: Text(title, style: TextStyle(fontWeight: FontWeight.w600, color: c.text))),
             const SizedBox(width: 8),
-            Flexible(
-              flex: 2,
+            // Takes its share of the row and right-aligns; wraps instead of overflowing with large text.
+            Expanded(
+              flex: 3,
               child: Text(line, textAlign: TextAlign.right, style: TextStyle(fontWeight: FontWeight.w500, color: v >= 1 ? c.danger : c.textMuted)),
             ),
           ]),

@@ -194,6 +194,12 @@ Future<T?> showWSheet<T>(BuildContext context, {required Widget Function(BuildCo
     context: context,
     isScrollControlled: true,
     useSafeArea: true,
-    builder: (ctx) => Padding(padding: EdgeInsets.fromLTRB(20, 0, 20, 20 + MediaQuery.of(ctx).viewInsets.bottom), child: builder(ctx)),
+    // useSafeArea only protects the top and sides. Keep the content above the
+    // system navigation bar (3-button or gesture) and above the keyboard.
+    builder: (ctx) {
+      final mq = MediaQuery.of(ctx);
+      final bottom = mq.viewInsets.bottom > mq.viewPadding.bottom ? mq.viewInsets.bottom : mq.viewPadding.bottom;
+      return Padding(padding: EdgeInsets.fromLTRB(20, 0, 20, 20 + bottom), child: builder(ctx));
+    },
   );
 }
