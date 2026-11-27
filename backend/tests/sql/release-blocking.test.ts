@@ -207,6 +207,38 @@ describe('2. quotas, retries and idempotency', () => {
     await reserve('scan-key-0004');
   });
 
+  it('Pro AI reads: 20 per calendar month, separate from the trial, reset by the month not by renewals', async () => {
+    const u = await createUser(db, 'pro-ai@example.com');
+    await db.query(`update public.profiles set ai_processing_consent_at = now() where id = $1`, [u]);
+    await db.query(`update public.system_settings set value = '100' where key = 'ai_rate_limit_per_hour'`);
+    const reserve = (key: string) => asUser(db, u, (tx) => tx.query(`select id from public.reserve_ai_action($1, 'scan_job', null)`, [key]));
+    const usedThisMonth = async () => (await asUser(db, u, (tx) => tx.query<{ r: any }>(`select public.get_my_usage() as r`))).rows[0]!.r;
+    try {
+      // On Free: the 3 trial reads are used up.
+      for (let i = 1; i <= 3; i++) await reserve(`trial-key-000${i}`);
+      await expectError(reserve('trial-key-0004'), /quota_exceeded:ai_actions:3/);
+      // Buys yearly Pro: a fresh 20 for this month; the trial reads don't count.
+      await asService(db, (tx) => tx.query(
+        `insert into public.entitlements (user_id, entitlement_key, environment, state, renewal_intent, valid_until, store)
+         values ($1, 'pro', 'PRODUCTION', 'active', 'will_renew', now() + interval '1 year', 'play_store')`, [u]));
+      for (let i = 1; i <= 20; i++) await reserve(`pro-key-${String(i).padStart(4, '0')}`);
+      await expectError(reserve('pro-key-0021'), /quota_exceeded:ai_actions:20/);
+      // A renewal (valid_until moves on) does not reset the month's reads.
+      await asService(db, (tx) => tx.query(`update public.entitlements set valid_until = valid_until + interval '1 year' where user_id = $1`, [u]));
+      await expectError(reserve('pro-key-0022'), /quota_exceeded:ai_actions:20/);
+      // The calendar month rolls over: this month's reads now belong to last month, so 20 more are available.
+      await db.query(
+        `update public.usage_ledger set quota_period = to_char((now() at time zone 'UTC') - interval '1 month', 'YYYY-MM')
+          where user_id = $1 and quota_period = to_char(now() at time zone 'UTC', 'YYYY-MM')`, [u]);
+      await reserve('next-month-0001');
+      const usage = await usedThisMonth();
+      expect(usage.ai_actions).toMatchObject({ used: 1, limit: 20 });
+      expect(usage.ai_actions.period).toMatch(/^\d{4}-\d{2}$/); // a calendar month, not 'lifetime'
+    } finally {
+      await db.query(`update public.system_settings set value = '10' where key = 'ai_rate_limit_per_hour'`);
+    }
+  });
+
   it('AI requires consent and honours the kill switch', async () => {
     const u = await createUser(db, 'noconsent@example.com');
     await expectError(asUser(db, u, (tx) => tx.query(`select public.reserve_ai_action('k-000001', 'scan_job', null)`)), /ai_consent_required/);
