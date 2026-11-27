@@ -7,6 +7,7 @@ import { serviceClient } from '../lib/supabase.js';
 import { Profiles } from '../models/index.js';
 import * as auth from '../services/auth.service.js';
 import { providerName } from '../services/ai/provider.js';
+import { pushProvider } from '../services/push/provider.js';
 import * as billing from '../services/billing/billing.service.js';
 import * as deletion from '../services/deletion.service.js';
 import * as exporter from '../services/export.service.js';
@@ -112,6 +113,25 @@ export const MeController = {
     const b = parseOrThrow(V.PlayPurchaseBody, req.body, 'body');
     await billing.verifyPlayPurchase(a.userId, b.purchase_token);
     res.json(one(entitlementView(check(await a.db.rpc('get_my_entitlement')) as Record<string, unknown>)));
+  },
+  /** Sends a sample reminder to this account's phones so the user can check delivery. */
+  testPush: async (req: Request, res: Response) => {
+    const a = authOf(req);
+    const devices = (check(await serviceClient().from('devices').select('id, push_token')
+      .eq('user_id', a.userId).eq('token_state', 'active').in('permission_state', ['granted', 'provisional'])
+      .not('push_token', 'is', null)) ?? []) as Array<{ id: string; push_token: string }>;
+    let sent = 0;
+    for (const d of devices) {
+      const r = await pushProvider().send({
+        token: d.push_token,
+        title: 'Reminders are working',
+        body: "This is how Warrantra will nudge you before a return window or warranty ends.",
+        data: { type: 'test' },
+      });
+      if (r.status === 'accepted') sent++;
+      if (r.status === 'invalid_token') await serviceClient().from('devices').update({ token_state: 'stale' }).eq('id', d.id);
+    }
+    res.json(one({ devices: devices.length, sent }));
   },
   registerDevice: async (req: Request, res: Response) => {
     const b = parseOrThrow(V.DeviceBody, req.body, 'body');

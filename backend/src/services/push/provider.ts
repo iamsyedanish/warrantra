@@ -51,7 +51,9 @@ class FcmPushProvider implements PushProvider {
           token: msg.token,
           notification: { title: msg.title, body: msg.body },
           data: msg.data,
-          android: { priority: 'normal', notification: { channel_id: 'deadlines' } },
+          // High priority: these are user-visible deadline reminders. Normal
+          // priority can be held for hours by Doze / OEM battery savers (Xiaomi).
+          android: { priority: 'high', notification: { channel_id: 'deadlines', icon: 'ic_stat_warrantra', color: '#6650C6' } },
           apns: { headers: { 'apns-priority': '5' }, payload: { aps: { sound: 'default' } } },
         },
       }),
