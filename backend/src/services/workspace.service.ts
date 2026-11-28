@@ -37,7 +37,21 @@ export async function getWorkspace(db: Db, id: string) {
     db.from('workspace_items').select('item_id, location_id, shared_by, shared_at, items(id, name, brand, model_number, lifecycle_state)').eq('workspace_id', id),
     db.from('locations').select('*').eq('workspace_id', id).eq('archived', false),
   ]);
-  return { ...ws, members: check(members), items: check(items), locations: check(locations) };
+  // Members can't read each other's profiles under RLS, so names came back
+  // empty ("?"). The caller is a member (RLS returned this workspace), so show
+  // each member's name, or their email when they haven't set one.
+  const rows = check(members) as Row[];
+  const ids = rows.map((m) => String(m.user_id));
+  const profiles = ids.length
+    ? ((check(await serviceClient().from('profiles').select('id, display_name, email').in('id', ids)) ?? []) as Row[])
+    : [];
+  const byId = new Map(profiles.map((p) => [String(p.id), p]));
+  const named = rows.map((m) => {
+    const p = byId.get(String(m.user_id));
+    const name = (p?.display_name as string | null)?.trim() || (p?.email as string | null) || null;
+    return { ...m, profiles: { display_name: name } };
+  });
+  return { ...ws, members: named, items: check(items), locations: check(locations) };
 }
 
 async function requireAdmin(db: Db, workspaceId: string, userId: string) {

@@ -1,3 +1,7 @@
+import 'dart:async';
+import 'dart:io' show Platform;
+
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/api_client.dart';
@@ -22,9 +26,25 @@ class SessionController extends Notifier<SessionStatus> {
   }
 
   Future<void> _restore() async {
+    // Keep the splash up long enough for its short animation on a cold start
+    // (the session check alone is near-instant). Skipped in widget tests.
+    // Counted from when the splash has painted, so slow starts still show it.
+    final minSplash = _inTests
+        ? Future<void>.value()
+        : _splashPainted.future.timeout(const Duration(seconds: 3), onTimeout: () {}).then((_) => Future<void>.delayed(const Duration(milliseconds: 1400)));
     final has = await ref.read(authRepositoryProvider).hasSession();
+    await minSplash;
     state = has ? SessionStatus.signedIn : SessionStatus.signedOut;
   }
+
+  static final _splashPainted = Completer<void>();
+
+  /// Called by the splash screen once it is on screen.
+  static void splashPainted() {
+    if (!_splashPainted.isCompleted) _splashPainted.complete();
+  }
+
+  static final _inTests = !kIsWeb && Platform.environment.containsKey('FLUTTER_TEST');
 
   void _expired() {
     if (state == SessionStatus.signedIn) _clearAndSignOut();

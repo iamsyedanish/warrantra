@@ -20,6 +20,7 @@ import 'add_sheet.dart';
 import '../../vault/presentation/vault_providers.dart';
 import 'capture_providers.dart';
 import 'upload_flow.dart';
+import '../../../core/widgets/loaders.dart';
 
 CaptureMode _mode(String? m) => CaptureMode.values.firstWhere((e) => e.name == m, orElse: () => CaptureMode.scanReceipt);
 
@@ -320,27 +321,44 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
       showBack: false,
       bottom: WButton.ghost('Stop and enter manually', onPressed: _stop),
       children: [
-        const SizedBox(height: 40),
-        Center(child: WTag(_uploading ? 'Preparing' : '1 action reserved', kind: WTagKind.accent, icon: PhosphorIconsRegular.sparkle)),
-        const SizedBox(height: 14),
+        const SizedBox(height: 24),
+        WScanAnimation(icon: label ? PhosphorIconsRegular.barcode : PhosphorIconsRegular.receipt),
+        const SizedBox(height: 18),
+        Center(child: WTag(_uploading ? 'Preparing' : '1 AI read in use', kind: WTagKind.accent, icon: PhosphorIconsRegular.sparkle)),
+        const SizedBox(height: 12),
         Text(label ? 'Reading the label' : 'Reading your receipt', textAlign: TextAlign.center, style: context.t.headlineSmall),
-        const SizedBox(height: 8),
-        Text('If this fails, the action is released and nothing is used.', textAlign: TextAlign.center, style: TextStyle(color: c.textMuted)),
-        const SizedBox(height: 28),
+        const SizedBox(height: 6),
+        Text('Usually under 30 seconds. If it fails, your AI read comes back.', textAlign: TextAlign.center, style: TextStyle(color: c.textMuted, height: 1.4)),
+        const SizedBox(height: 24),
         WCard(
           child: Column(children: [
             for (final (i, s) in steps.indexed)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Row(children: [
-                  if (i < active)
-                    Icon(PhosphorIconsFill.checkCircle, color: c.accent, size: 22)
-                  else if (i == active)
-                    SizedBox(width: 22, height: 22, child: Padding(padding: const EdgeInsets.all(2), child: CircularProgressIndicator(strokeWidth: 2.2, color: c.accent)))
-                  else
-                    Icon(PhosphorIconsRegular.circle, color: c.textSubtle, size: 22),
+              IntrinsicHeight(
+                child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                  // Timeline: dot plus the line to the next step.
+                  SizedBox(
+                    width: 26,
+                    child: Column(children: [
+                      if (i < active)
+                        Icon(PhosphorIconsFill.checkCircle, color: c.accent, size: 24)
+                      else if (i == active)
+                        SizedBox(width: 24, height: 24, child: Padding(padding: const EdgeInsets.all(2), child: CircularProgressIndicator(strokeWidth: 2.4, color: c.accent)))
+                      else
+                        Icon(PhosphorIconsRegular.circle, color: c.textSubtle, size: 24),
+                      if (i < steps.length - 1)
+                        Expanded(child: Container(width: 2, margin: const EdgeInsets.symmetric(vertical: 3), color: i < active ? c.accent : c.divider)),
+                    ]),
+                  ),
                   const SizedBox(width: 12),
-                  Text(s, style: TextStyle(color: i <= active ? c.text : c.textSubtle)),
+                  Expanded(
+                    child: Padding(
+                      padding: EdgeInsets.only(top: 2, bottom: i < steps.length - 1 ? 18 : 0),
+                      child: Text(s,
+                          style: TextStyle(
+                              fontWeight: i == active ? FontWeight.w600 : FontWeight.w400,
+                              color: i <= active ? c.text : c.textSubtle)),
+                    ),
+                  ),
                 ]),
               ),
           ]),

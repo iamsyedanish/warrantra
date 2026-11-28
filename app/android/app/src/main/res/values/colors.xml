@@ -2,4 +2,6 @@
 <resources>
     <color name="ic_launcher_background">#FFFFFF</color>
     <color name="notification_accent">#6650C6</color>
+    <!-- Launch screen background (matches the app's light theme). -->
+    <color name="splash_background">#F6F6FC</color>
 </resources>

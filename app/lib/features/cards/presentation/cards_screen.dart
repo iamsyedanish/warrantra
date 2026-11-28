@@ -23,7 +23,7 @@ class _CardsScreenState extends ConsumerState<CardsScreen> {
 
   Future<void> _add() async {
     final n = name.text.trim();
-    if (n.isEmpty) return;
+    if (n.isEmpty) return showToast(context, 'Type a nickname first, like “Costco Visa”.');
     if (RegExp(r'\d{12,}').hasMatch(n.replaceAll(RegExp(r'[\s.-]'), ''))) return showToast(context, 'Never enter card numbers. Use a nickname.');
     setState(() => busy = true);
     try {
