@@ -15,6 +15,7 @@ import '../../../core/widgets/inputs.dart';
 import '../../../core/widgets/scaffold.dart';
 import '../../account/presentation/account_providers.dart';
 import '../domain/billing.dart';
+import 'pro_unlocked.dart';
 import 'settings_providers.dart';
 import '../../guide/guide_spotlight.dart';
 
@@ -234,8 +235,9 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
         // The purchase was already verified by the server before it completed.
         ref.invalidate(meProvider);
         if (mounted) {
-          showToast(context, 'Welcome to Pro');
-          context.pop();
+          final router = GoRouter.of(context);
+          await showProUnlocked(context, period: period);
+          if (router.canPop()) router.pop();
         }
       }
     } on Failure catch (e) {
