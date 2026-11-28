@@ -75,7 +75,7 @@ Me meFromJson(Json j) {
     plan: PlanInfo(
       code: ent.str('plan_code', 'free'),
       maxItems: limits.i('max_items') ?? 10,
-      storageBytes: limits.i('storage_bytes') ?? 104857600,
+      storageBytes: limits.i('storage_bytes') ?? 20971520,
       aiPerMonth: limits.i('ai_actions_per_month') ?? 0,
       aiTrial: limits.i('ai_lifetime_trial_actions') ?? 0,
       claimPackAssembled: limits.s('claim_pack_level') == 'assembled',

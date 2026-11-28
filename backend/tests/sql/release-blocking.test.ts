@@ -173,13 +173,15 @@ describe('2. quotas, retries and idempotency', () => {
     expect(n.rows[0]!.n).toBe(2);
   });
 
-  it('free plan item quota (10, archived count) blocks additions without deleting', async () => {
+  it('free plan item quota (5, archived count) blocks additions without deleting', async () => {
     const u = await createUser(db, 'quota@example.com');
     await asUser(db, u, async (tx) => {
-      for (let i = 0; i < 10; i++) {
+      for (let i = 0; i < 5; i++) {
         await tx.query(`insert into public.items (user_id, name, archived) values ($1, $2, $3)`, [u, `Item ${i}`, i % 2 === 0]);
       }
-      await expectError(tx.query(`insert into public.items (user_id, name) values ($1, 'eleventh')`, [u]), /quota_exceeded:items:10/);
+      await expectError(tx.query(`insert into public.items (user_id, name) values ($1, 'sixth')`, [u]), /quota_exceeded:items:5/);
+      const n = await tx.query<{ n: number }>(`select count(*)::int n from public.items where user_id = $1`, [u]);
+      expect(n.rows[0]!.n).toBe(5); // nothing deleted
       const usage = await tx.query<{ r: any }>(`select public.get_my_usage() as r`);
       expect(usage.rows[0]!.r.additions_paused).toBe(true);
     });
@@ -255,8 +257,8 @@ describe('2. quotas, retries and idempotency', () => {
     const a = (await begin('up-key-0001', 9_000_000)).rows[0]!.id;
     expect((await begin('up-key-0001', 9_000_000)).rows[0]!.id).toBe(a);
     await expectError(begin('up-key-big1', 11 * 1024 * 1024), /file_too_large/);
-    for (let i = 2; i <= 11; i++) await begin(`up-key-${String(i).padStart(4, '0')}`, 9_000_000);
-    await expectError(begin('up-key-0012', 9_000_000), /quota_exceeded:storage_bytes/);
+    await begin('up-key-0002', 9_000_000); // 18 MB reserved of Free's 20 MB
+    await expectError(begin('up-key-0003', 9_000_000), /quota_exceeded:storage_bytes/);
   });
 });
 

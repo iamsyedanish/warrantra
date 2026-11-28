@@ -40,10 +40,10 @@ class ProBenefit {
 }
 
 const proBenefits = <ProBenefit>[
-  ProBenefit(PhosphorIconsRegular.package, WTint.violet, '500 items', 'Track everything you own: appliances, electronics, tools, furniture.', free: 'Free: 10 items'),
+  ProBenefit(PhosphorIconsRegular.package, WTint.violet, '500 items', 'Track everything you own: appliances, electronics, tools, furniture.', free: 'Free: 5 items'),
   ProBenefit(PhosphorIconsRegular.sparkle, WTint.orchid, '20 AI receipt reads every month',
       'Snap or upload a receipt and Warrantra fills in the store, date, items and prices for you to check.', free: 'Free: 3 reads to try'),
-  ProBenefit(PhosphorIconsRegular.hardDrives, WTint.blue, '1 GB for your originals', 'Keep receipts, manuals and warranty documents as proof, safely stored.', free: 'Free: 100 MB'),
+  ProBenefit(PhosphorIconsRegular.hardDrives, WTint.blue, '1 GB for your originals', 'Keep receipts, manuals and warranty documents as proof, safely stored.', free: 'Free: 20 MB'),
   ProBenefit(PhosphorIconsRegular.firstAidKit, WTint.coral, 'Full claim packs',
       'Receipt, coverage, photos and a timeline gathered into one PDF you can send to the store or maker.', free: 'Free: summary only'),
   ProBenefit(PhosphorIconsRegular.pencilLine, WTint.amber, 'AI-drafted claim letters', 'A clear, polite message for the retailer or manufacturer, ready for you to review and send.'),
@@ -346,8 +346,8 @@ class _CompareTable extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = context.w;
     const rows = <(String, String, String)>[
-      ('Items', '10', '500'),
-      ('Storage for originals', '100 MB', '1 GB'),
+      ('Items', '5', '500'),
+      ('Storage for originals', '20 MB', '1 GB'),
       ('AI receipt reads', '3 to try', '20 / month'),
       ('Claim packs', 'Summary', 'Full PDF'),
       ('AI claim letters', '–', '✓'),
