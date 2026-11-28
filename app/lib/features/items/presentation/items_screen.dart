@@ -15,6 +15,7 @@ import '../../capture/presentation/add_sheet.dart';
 import '../domain/items.dart';
 import 'item_ui.dart';
 import 'items_providers.dart';
+import '../../guide/guide_spotlight.dart';
 
 const _statusFilters = <(String?, String)>[
   (null, 'All'),
@@ -71,13 +72,13 @@ class _ItemsScreenState extends ConsumerState<ItemsScreen> {
             padding: const EdgeInsets.fromLTRB(20, 12, 12, 0),
             child: Row(children: [
               Expanded(child: Text('My items', style: context.t.headlineMedium)),
-              PopupMenuButton<String>(
+              GuideTarget(id: 'items.sort', child: PopupMenuButton<String>(
                 tooltip: 'Sort',
                 icon: Icon(PhosphorIconsRegular.sortAscending, color: c.text),
                 initialValue: q.sort,
                 onSelected: (s) => _setQuery(q.copyWith(sort: s)),
                 itemBuilder: (_) => [for (final (v, l) in _sorts) PopupMenuItem(value: v, child: Text(l))],
-              ),
+              )),
               PopupMenuButton<String>(
                 tooltip: 'Show',
                 icon: Icon(PhosphorIconsRegular.funnel, color: c.text),
@@ -121,7 +122,7 @@ class _ItemsScreenState extends ConsumerState<ItemsScreen> {
             ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: TextField(
+            child: GuideTarget(id: 'items.search', child: TextField(
               controller: _search,
               textInputAction: TextInputAction.search,
               decoration: InputDecoration(
@@ -142,10 +143,10 @@ class _ItemsScreenState extends ConsumerState<ItemsScreen> {
                 _debounce?.cancel();
                 _debounce = Timer(const Duration(milliseconds: 350), () => _setQuery(ref.read(itemsQueryProvider).copyWith(q: v.trim())));
               },
-            ),
+            )),
           ),
           const SizedBox(height: 10),
-          SizedBox(
+          GuideTarget(id: 'items.filters', child: SizedBox(
             height: 36,
             child: ListView(scrollDirection: Axis.horizontal, padding: const EdgeInsets.symmetric(horizontal: 20), children: [
               for (final (v, l) in _statusFilters)
@@ -158,7 +159,7 @@ class _ItemsScreenState extends ConsumerState<ItemsScreen> {
                   ),
                 ),
             ]),
-          ),
+          )),
           const SizedBox(height: 6),
           Expanded(
             child: RefreshIndicator(

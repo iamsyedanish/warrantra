@@ -15,6 +15,7 @@ import '../../items/presentation/item_ui.dart';
 import '../../items/presentation/items_providers.dart';
 import '../domain/action_center.dart';
 import 'home_providers.dart';
+import '../../guide/guide_spotlight.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -143,7 +144,8 @@ class _FullHome extends ConsumerWidget {
             Expanded(child: Text(center.message ?? 'No returns, registrations or coverage need attention right now.', style: TextStyle(color: c.textMuted))),
           ]),
         ),
-      for (final a in attention) Padding(padding: const EdgeInsets.only(bottom: 10), child: _ActionCard(a)),
+      for (final (i, a) in attention.indexed)
+        Padding(padding: const EdgeInsets.only(bottom: 10), child: i == 0 ? GuideTarget(id: 'home.attention', child: _ActionCard(a)) : _ActionCard(a)),
       if (upcoming.isNotEmpty) ...[
         const WSectionHeader('Coming up'),
         WCard(
@@ -181,7 +183,7 @@ class _FullHome extends ConsumerWidget {
         for (final m in center.missing.take(4)) Padding(padding: const EdgeInsets.only(bottom: 10), child: _ActionCard(m)),
       ],
       if (recent.isNotEmpty) ...[
-        WSectionHeader('Recent purchases', action: 'All items', actionIcon: PhosphorIconsRegular.list, onAction: () => context.go('/items')),
+        GuideTarget(id: 'home.recent', child: WSectionHeader('Recent purchases', action: 'All items', actionIcon: PhosphorIconsRegular.list, onAction: () => context.go('/items'))),
         for (final it in recent.take(4))
           WListRow(
             icon: itemIcon(category: it.categorySlug, name: it.name),

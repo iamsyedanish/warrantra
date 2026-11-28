@@ -6,6 +6,8 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import '../../../app/device_registration.dart';
 import '../../../core/config/app_config.dart';
+import '../../guide/guide_avatar.dart';
+import '../../guide/guide_sheet.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/utils/format.dart';
@@ -17,6 +19,7 @@ import '../../account/presentation/account_providers.dart';
 import '../../auth/presentation/session_controller.dart';
 import '../../claims/presentation/claims_providers.dart';
 import 'settings_providers.dart';
+import '../../guide/guide_spotlight.dart';
 
 final _versionProvider = FutureProvider<String>((ref) async {
   final p = await PackageInfo.fromPlatform();
@@ -161,11 +164,17 @@ class SettingsScreen extends ConsumerWidget {
                         ),
                         WListRow(icon: PhosphorIconsRegular.chartLineUp, title: 'Your ${DateTime.now().year}', onTap: () => context.push('/settings/annual')),
                         WListRow(icon: PhosphorIconsRegular.creditCard, title: 'Payment cards', subtitle: 'Labels only', onTap: () => context.push('/cards')),
+                        WListRow(
+                          leading: const GuideAvatar(size: 36),
+                          title: 'Ask Pip, your guide',
+                          subtitle: 'Step-by-step help with anything',
+                          onTap: () => showGuide(context),
+                        ),
                         WListRow(icon: PhosphorIconsRegular.lifebuoy, title: 'Help & support', onTap: () => context.push('/settings/support')),
                       ],
                     ),
                     const WSectionHeader('Appearance'),
-                    _AppearancePicker(value: mode, onChanged: (v) => ref.read(themeModeProvider.notifier).set(v)),
+                    GuideTarget(id: 'settings.appearance', child: _AppearancePicker(value: mode, onChanged: (v) => ref.read(themeModeProvider.notifier).set(v))),
                     const SizedBox(height: 12),
                     const WSectionHeader('More'),
                     WGroup(

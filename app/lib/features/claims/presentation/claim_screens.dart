@@ -18,6 +18,7 @@ import '../../items/presentation/items_providers.dart';
 import '../domain/claims.dart';
 import 'claim_wizard_screen.dart';
 import 'claims_providers.dart';
+import '../../guide/guide_spotlight.dart';
 
 Widget _loadClaim(WidgetRef ref, String id, String title, Widget Function(Claim) build) {
   final c = ref.watch(claimProvider(id));
@@ -281,7 +282,7 @@ class ClaimsListScreen extends ConsumerWidget {
             final open = list.where((c) => !c.closed).toList(), closed = list.where((c) => c.closed).toList();
             final next = (open.where((c) => c.followUpOn != null).toList()..sort((a, b) => a.followUpOn!.compareTo(b.followUpOn!))).firstOrNull;
             return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-              WHeroCard(
+              GuideTarget(id: 'claims.summary', child: WHeroCard(
                 eyebrow: 'Claims',
                 title: open.isEmpty ? 'All claims closed' : '${open.length} in progress',
                 icon: PhosphorIconsFill.lifebuoy,
@@ -294,7 +295,7 @@ class ClaimsListScreen extends ConsumerWidget {
                     style: WHeroCard.muted(),
                   ),
                 ],
-              ),
+              )),
               if (open.isNotEmpty) ...[
                 const SizedBox(height: 22),
                 const WSectionHeader('In progress'),

@@ -6,7 +6,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'core/router/app_router.dart';
 import 'core/storage/secure_store.dart';
 import 'core/theme/app_theme.dart';
+import 'core/widgets/scaffold.dart';
 import 'demo/demo_mode.dart';
+import 'features/guide/guide_sheet.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -18,6 +20,7 @@ class WarrantraApp extends ConsumerWidget {
   const WarrantraApp({super.key});
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    WScreen.guideButton = guideHeaderButton; // Pip on every screen header
     return MaterialApp.router(
       title: 'Warrantra',
       debugShowCheckedModeBanner: false,

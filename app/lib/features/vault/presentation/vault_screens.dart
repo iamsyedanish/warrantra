@@ -22,6 +22,7 @@ import '../../items/presentation/item_ui.dart';
 import '../../items/presentation/items_providers.dart';
 import '../domain/vault.dart';
 import 'vault_providers.dart';
+import '../../guide/guide_spotlight.dart';
 
 const _types = <(String?, String)>[(null, 'All'), ('receipt', 'Receipts'), ('warranty_card', 'Warranties'), ('manual', 'Manuals'), ('product_photo', 'Photos'), ('claim_evidence', 'Claim evidence'), ('other', 'Other')];
 String typeLabel(String t) => switch (t) {
@@ -86,7 +87,7 @@ class VaultScreen extends ConsumerWidget {
                   Text('${docs.value?.length ?? '…'} documents · private to your account', style: TextStyle(fontSize: 13, color: c.textMuted)),
                 ]),
               ),
-              WButton.secondary('Upload', icon: PhosphorIconsRegular.uploadSimple, expand: false, compact: true, onPressed: () => _upload(context, ref)),
+              GuideTarget(id: 'vault.upload', child: WButton.secondary('Upload', icon: PhosphorIconsRegular.uploadSimple, expand: false, compact: true, onPressed: () => _upload(context, ref))),
             ]),
             if (me != null) ...[
               const SizedBox(height: 12),
@@ -108,13 +109,13 @@ class VaultScreen extends ConsumerWidget {
               ),
             ],
             const SizedBox(height: 12),
-            SizedBox(
+            GuideTarget(id: 'vault.filters', child: SizedBox(
               height: 36,
               child: ListView(scrollDirection: Axis.horizontal, children: [
                 for (final (v, l) in _types)
                   Padding(padding: const EdgeInsets.only(right: 8), child: ChoiceChip(label: Text(l), selected: filter == v, onSelected: (_) => ref.read(vaultFilterProvider.notifier).set(v))),
               ]),
-            ),
+            )),
             const SizedBox(height: 8),
             AsyncBody<List<VaultDoc>>(
               value: docs,
