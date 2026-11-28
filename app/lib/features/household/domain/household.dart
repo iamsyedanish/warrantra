@@ -42,7 +42,8 @@ abstract interface class HouseholdRepository {
   Future<List<Workspace>> list();
   Future<Workspace> get(String id);
   Future<Workspace> create({required String kind, required String name});
-  Future<void> invite(String id, {required String email, required String role});
+  /// Returns the invitation code (shown once, for sharing) and whether the email went out.
+  Future<({String? code, bool mailSent})> invite(String id, {required String email, required String role});
   Future<void> acceptInvite(String token);
   Future<void> updateMember(String id, String userId, Map<String, dynamic> patch);
   Future<void> leave(String id);

@@ -232,7 +232,7 @@ class _Household with _NoWrites implements HouseholdRepository {
   @override
   Future<Workspace> get(String id) async => _ws;
   @override
-  Future<ForwardingAddress?> forwardingAddress() async => const ForwardingAddress('alex-7f3k2@in.warrantra.app', null);
+  Future<ForwardingAddress?> forwardingAddress() async => const ForwardingAddress('alex-7f3k2@in.warrantra.com', null);
   @override
   Future<List<InboundEmail>> inboundLog() async => [InboundEmail(id: 'e1', state: 'draft_created', attachments: 1, receivedAt: _d(-3), draftId: 'd1')];
 }

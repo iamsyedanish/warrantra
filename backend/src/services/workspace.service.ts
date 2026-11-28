@@ -4,6 +4,7 @@
  * locations, asset assignment, service history and maintenance.
  * Authorization is enforced by RLS + triggers; this layer adds invitations.
  */
+import { logger } from '../lib/logger.js';
 import type { z } from 'zod';
 import { env } from '../config/env.js';
 import { check, forbidden, notFound } from '../lib/errors.js';
@@ -51,14 +52,27 @@ export async function invite(db: Db, userId: string, workspaceId: string, body: 
   const inv = check(await serviceClient().from('workspace_invitations').insert({
     workspace_id: workspaceId, email_normalized: normalizeEmail(body.email), role: body.role, token_hash: pepperedHash(token), invited_by: userId,
   }).select('id, role, expires_at').single()) as Row;
-  await sendMail({
-    to: body.email,
-    subject: `You're invited to "${String(ws.name)}" on Warrantra`,
-    text: `You've been invited to join "${String(ws.name)}" as ${body.role}.\n\nOpen Warrantra and accept with this code, or follow the link:\n` +
-          `${env().PUBLIC_BASE_URL}/invite?token=${encodeURIComponent(token)}\n\nThe invitation expires in 7 days.`,
-  });
+  // Email is best effort: the inviter also gets the code back to share any way
+  // they like (message, WhatsApp), so a mail failure doesn't lose the invite.
+  let mailSent = true;
+  try {
+    await sendMail({
+      to: body.email,
+      subject: `You're invited to "${String(ws.name)}" on Warrantra`,
+      text:
+        `You've been invited to join "${String(ws.name)}" on Warrantra.\n\n` +
+        `To accept:\n1. Open the Warrantra app and sign in with this email address.\n` +
+        `2. Go to Settings → Household → Join with code.\n3. Paste this code:\n\n${token}\n\n` +
+        `The invitation expires in 7 days. If you weren't expecting it, you can ignore this email.`,
+    });
+  } catch (err) {
+    mailSent = false;
+    logger.warn({ err, workspaceId }, 'invite email failed; code returned to inviter');
+  }
   await audit({ actorType: 'user', actorId: userId, action: 'workspace.invited', targetType: 'workspace', targetId: workspaceId, metadata: { role: body.role } });
-  return inv;
+  // The code is shown once to the inviter (an admin of this workspace) so they
+  // can share it; only its hash is stored.
+  return { ...inv, code: token, mail_sent: mailSent };
 }
 
 export async function acceptInvite(db: Db, userId: string, token: string) {
