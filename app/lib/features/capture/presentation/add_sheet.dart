@@ -16,6 +16,7 @@ import '../domain/capture.dart';
 import 'capture_providers.dart';
 import 'capture_screens.dart' show PendingScan;
 import 'upload_flow.dart';
+import '../../guide/guide_spotlight.dart';
 
 enum CaptureMode { scanReceipt, upload, manual, productLabel }
 
@@ -40,9 +41,9 @@ class _AddSheet extends ConsumerWidget {
         style: TextStyle(fontSize: 13, color: c.textMuted),
       ),
       const SizedBox(height: 12),
-      _Option(icon: PhosphorIconsRegular.scan, title: 'Scan receipt', subtitle: 'AI reads the store, date, items and price for you to review', onTap: () => Navigator.pop(context, CaptureMode.scanReceipt)),
-      _Option(icon: PhosphorIconsRegular.uploadSimple, title: 'Upload image or PDF', subtitle: 'From Photos or Files, including e-receipts', onTap: () => Navigator.pop(context, CaptureMode.upload)),
-      _Option(icon: PhosphorIconsRegular.pencilSimpleLine, title: 'Enter manually', subtitle: 'No receipt needed; always free', onTap: () => Navigator.pop(context, CaptureMode.manual)),
+      GuideTarget(id: 'add.scan', child: _Option(icon: PhosphorIconsRegular.scan, title: 'Scan receipt', subtitle: 'AI reads the store, date, items and price for you to review', onTap: () => Navigator.pop(context, CaptureMode.scanReceipt))),
+      GuideTarget(id: 'add.upload', child: _Option(icon: PhosphorIconsRegular.uploadSimple, title: 'Upload image or PDF', subtitle: 'From Photos or Files, including e-receipts', onTap: () => Navigator.pop(context, CaptureMode.upload))),
+      GuideTarget(id: 'add.manual', child: _Option(icon: PhosphorIconsRegular.pencilSimpleLine, title: 'Enter manually', subtitle: 'No receipt needed; always free', onTap: () => Navigator.pop(context, CaptureMode.manual))),
       _Option(
         icon: PhosphorIconsRegular.barcode,
         title: 'Scan product label',

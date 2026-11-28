@@ -26,6 +26,7 @@ import '../../home/presentation/home_providers.dart';
 import '../domain/settings.dart';
 import 'settings_providers.dart';
 import 'settings_screen.dart';
+import '../../guide/guide_spotlight.dart';
 
 // ---------------------------------------------------------------------------
 // Export
@@ -348,7 +349,7 @@ class _SignInMethodsScreenState extends ConsumerState<SignInMethodsScreen> {
         AsyncBody<List<String>>(
           value: ids,
           onRetry: () => ref.invalidate(_identitiesProvider),
-          data: (list) => WGroup(children: [
+          data: (list) => GuideTarget(id: 'signin.list', child: WGroup(children: [
             if (list.contains('email'))
               WListRow(icon: PhosphorIconsRegular.envelopeSimple, title: 'Email and password', caret: false, trailing: const WTag('Connected', kind: WTagKind.accent)),
             WListRow(
@@ -362,7 +363,7 @@ class _SignInMethodsScreenState extends ConsumerState<SignInMethodsScreen> {
                       ? const WTag('Not available', kind: WTagKind.outline)
                       : WButton.secondary('Add', expand: false, compact: true, loading: busy, onPressed: _addGoogle),
             ),
-          ]),
+          ])),
         ),
         const SizedBox(height: 12),
         const WNote('Accounts are never merged just because two sign-in methods share an email. Add Google here first, then "Continue with Google" opens this account.',

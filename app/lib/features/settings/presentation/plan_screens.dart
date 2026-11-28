@@ -15,6 +15,7 @@ import '../../../core/widgets/scaffold.dart';
 import '../../account/presentation/account_providers.dart';
 import '../domain/billing.dart';
 import 'settings_providers.dart';
+import '../../guide/guide_spotlight.dart';
 
 bool get _isIOS => defaultTargetPlatform == TargetPlatform.iOS;
 
@@ -86,7 +87,7 @@ class PlanScreen extends ConsumerWidget {
                 ],
               ),
               const SizedBox(height: 22),
-              const WSectionHeader('Usage'),
+              const GuideTarget(id: 'plan.usage', child: WSectionHeader('Usage')),
               WCard(
                 child: Column(children: [
                   _UsageMeter(
@@ -134,7 +135,7 @@ class PlanScreen extends ConsumerWidget {
                         ]),
                       ),
                     const SizedBox(height: 6),
-                    WButton('See everything in Pro', onPressed: () => context.push('/settings/paywall')),
+                    GuideTarget(id: 'plan.pro', child: WButton('See everything in Pro', onPressed: () => context.push('/settings/paywall'))),
                   ]),
                 ),
               ],

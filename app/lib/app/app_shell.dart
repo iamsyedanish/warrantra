@@ -10,6 +10,10 @@ import '../core/theme/tokens.dart';
 import '../features/home/presentation/home_providers.dart';
 import '../features/capture/presentation/add_sheet.dart';
 import 'device_registration.dart';
+import '../features/guide/guide_content.dart';
+import '../features/guide/guide_sheet.dart';
+import '../features/guide/guide_spotlight.dart';
+import '../core/storage/secure_store.dart' show sharedPrefsProvider;
 
 /// Bottom tabs (Home, Items, Vault, Settings) with the center Add button.
 class AppShell extends ConsumerStatefulWidget {
@@ -27,6 +31,8 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) async {
+      guideTourRequests.addListener(_runTour);
+      _maybeIntroduceGuide();
       await registerDevice(ref);
       final push = PushService.instance;
       // A tapped reminder opens its item (or the Action Center): from the
@@ -56,6 +62,25 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
     });
   }
 
+  /// First time on this phone: Pip says hello and offers the tour.
+  Future<void> _maybeIntroduceGuide() async {
+    final prefs = ref.read(sharedPrefsProvider);
+    if (prefs.getBool(guideIntroSeenKey) ?? false) return;
+    await Future<void>.delayed(const Duration(milliseconds: 700));
+    if (!mounted) return;
+    await prefs.setBool(guideIntroSeenKey, true);
+    if (!mounted) return;
+    if (await showGuideIntro(context)) _runTour();
+  }
+
+  Future<void> _runTour() async {
+    if (!mounted || GuideSpotlight.running) return;
+    if (widget.shell.currentIndex != 0) widget.shell.goBranch(0);
+    await Future<void>.delayed(const Duration(milliseconds: 350));
+    if (!mounted) return;
+    await GuideSpotlight.run(context, guideIntroTour);
+  }
+
   void _openFromNotification(Map<String, dynamic> data) {
     if (!mounted) return;
     ref.invalidate(actionCenterProvider);
@@ -76,6 +101,7 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    guideTourRequests.removeListener(_runTour);
     for (final s in _subs) {
       s.cancel();
     }
@@ -86,10 +112,10 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
   Widget build(BuildContext context) {
     final c = context.w;
     final i = widget.shell.currentIndex;
-    Widget tab(int index, IconData icon, IconData active, String label) {
+    Widget tab(int index, IconData icon, IconData active, String label, String guideId) {
       final on = i == index;
       return Expanded(
-        child: InkWell(
+        child: GuideTarget(id: guideId, child: InkWell(
           onTap: () => widget.shell.goBranch(index, initialLocation: index == i),
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 6),
@@ -103,12 +129,14 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
               ]),
             ),
           ),
-        ),
+        )),
       );
     }
 
     return Scaffold(
       body: widget.shell,
+      // Pip, the guide, sits just above the tab bar on the main tabs.
+      floatingActionButton: const GuideTarget(id: 'guide.button', child: GuideButton(size: 46)),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(color: c.surface, border: Border(top: BorderSide(color: c.divider))),
         child: SafeArea(
@@ -116,11 +144,11 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
           child: SizedBox(
             height: 64,
             child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
-            tab(0, PhosphorIconsRegular.house, PhosphorIconsFill.house, 'Home'),
-            tab(1, PhosphorIconsRegular.package, PhosphorIconsFill.package, 'Items'),
+            tab(0, PhosphorIconsRegular.house, PhosphorIconsFill.house, 'Home', 'nav.home'),
+            tab(1, PhosphorIconsRegular.package, PhosphorIconsFill.package, 'Items', 'nav.items'),
             Expanded(
               child: Center(
-                child: Semantics(
+                child: GuideTarget(id: 'nav.add', child: Semantics(
                   button: true,
                   label: 'Add purchase',
                   child: InkWell(
@@ -137,11 +165,11 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
                       child: Icon(PhosphorIconsRegular.plus, color: c.accentSoftText, size: 24),
                     ),
                   ),
-                ),
+                )),
               ),
             ),
-            tab(2, PhosphorIconsRegular.vault, PhosphorIconsFill.vault, 'Vault'),
-            tab(3, PhosphorIconsRegular.gear, PhosphorIconsFill.gear, 'Settings'),
+            tab(2, PhosphorIconsRegular.vault, PhosphorIconsFill.vault, 'Vault', 'nav.vault'),
+            tab(3, PhosphorIconsRegular.gear, PhosphorIconsFill.gear, 'Settings', 'nav.settings'),
           ]),
           ),
         ),

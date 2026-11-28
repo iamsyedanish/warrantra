@@ -12,6 +12,7 @@ import '../../capture/presentation/upload_flow.dart';
 import '../domain/items.dart';
 import 'item_ui.dart';
 import 'items_providers.dart';
+import '../../guide/guide_spotlight.dart';
 
 class ItemDetailScreen extends ConsumerWidget {
   const ItemDetailScreen({super.key, required this.itemId});
@@ -88,7 +89,7 @@ class _Body extends ConsumerWidget {
         ),
 
       // ---- Coverage
-      WSectionHeader('Coverage', action: 'Add', actionIcon: PhosphorIconsRegular.plus, onAction: () => context.push('/items/${s.id}/coverage/new')),
+      GuideTarget(id: 'item.coverage', child: WSectionHeader('Coverage', action: 'Add', actionIcon: PhosphorIconsRegular.plus, onAction: () => context.push('/items/${s.id}/coverage/new'))),
       if (d.warranties.isEmpty)
         _SuggestionsOrEmpty(itemId: s.id)
       else
@@ -96,7 +97,7 @@ class _Body extends ConsumerWidget {
 
       // ---- Registration
       if (d.registrations.isNotEmpty || pendingRegs.isNotEmpty) ...[
-        const WSectionHeader('Registration'),
+        const GuideTarget(id: 'item.registration', child: WSectionHeader('Registration')),
         for (final g in d.registrations)
           WListRow(
             icon: g.done ? PhosphorIconsRegular.checkCircle : PhosphorIconsRegular.clipboardText,
@@ -141,7 +142,7 @@ class _Body extends ConsumerWidget {
           ),
 
       // ---- Claims
-      WSectionHeader('Claims & returns', action: 'Start', actionIcon: PhosphorIconsRegular.plus, onAction: () => context.push('/claims/new?item=${s.id}')),
+      GuideTarget(id: 'item.claims', child: WSectionHeader('Claims & returns', action: 'Start', actionIcon: PhosphorIconsRegular.plus, onAction: () => context.push('/claims/new?item=${s.id}'))),
       if (d.claims.isEmpty)
         WNote('If something goes wrong, Warrantra assembles the facts and documents into a claim package you send yourself.', icon: PhosphorIconsRegular.lifebuoy)
       else

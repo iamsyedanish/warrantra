@@ -34,6 +34,10 @@ class WScreen extends StatelessWidget {
   final bool scroll;
   final bool showBack;
 
+  /// Builds the guide (help) button shown on the right of every screen header.
+  /// Set once at startup by the app; null hides it.
+  static Widget? Function(BuildContext context)? guideButton;
+
   @override
   Widget build(BuildContext context) {
     final c = context.w;
@@ -62,7 +66,20 @@ class WScreen extends StatelessWidget {
                       style: TextStyle(fontSize: 15.5, fontWeight: FontWeight.w500, color: c.text),
                     ),
                   ),
-                  if (actions.isEmpty && showBack) const SizedBox(width: 40) else Row(mainAxisSize: MainAxisSize.min, children: actions),
+                  ...() {
+                    final guide = WScreen.guideButton?.call(context);
+                    if (actions.isEmpty) return [if (guide != null) guide else if (showBack) const SizedBox(width: 40)];
+                    // Shrinks rather than overflowing with very large text.
+                    return [
+                      Flexible(
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerRight,
+                          child: Row(mainAxisSize: MainAxisSize.min, children: [...actions, ?guide]),
+                        ),
+                      ),
+                    ];
+                  }(),
                 ],
               ),
             ),
@@ -194,6 +211,8 @@ Future<T?> showWSheet<T>(BuildContext context, {required Widget Function(BuildCo
     context: context,
     isScrollControlled: true,
     useSafeArea: true,
+    // Over the whole app, not inside a tab: covers the tab bar and Pip's button.
+    useRootNavigator: true,
     // useSafeArea only protects the top and sides. Keep the content above the
     // system navigation bar (3-button or gesture) and above the keyboard.
     builder: (ctx) {

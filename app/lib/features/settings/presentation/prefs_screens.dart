@@ -14,6 +14,7 @@ import '../../../core/widgets/inputs.dart';
 import '../../../core/widgets/scaffold.dart';
 import '../../account/domain/account.dart';
 import '../../account/presentation/account_providers.dart';
+import '../../guide/guide_spotlight.dart';
 
 /// Settings that change instantly on screen and save in the background.
 /// If the save fails, the old value comes back with a message.
@@ -338,7 +339,7 @@ class _ReminderPrefsState extends ConsumerState<ReminderPrefsScreen>
                   ),
                 ),
 
-                const WSectionHeader('When to send them'),
+                const GuideTarget(id: 'reminders.time', child: WSectionHeader('When to send them')),
                 WGroup(
                   children: [
                     WListRow(
@@ -364,7 +365,7 @@ class _ReminderPrefsState extends ConsumerState<ReminderPrefsScreen>
                   ],
                 ),
 
-                const WSectionHeader('What to remind me about'),
+                const GuideTarget(id: 'reminders.kinds', child: WSectionHeader('What to remind me about')),
                 for (final (k, on, offs) in kinds)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 10),
