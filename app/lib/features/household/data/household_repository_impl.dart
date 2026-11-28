@@ -30,9 +30,14 @@ class HouseholdRepositoryImpl implements HouseholdRepository {
   @override
   Future<Workspace> create({required String kind, required String name}) async => _ws(await _api.post<Json>('/workspaces', body: {'kind': kind, 'name': name}));
   @override
-  Future<void> invite(String id, {required String email, required String role}) => _api.post<dynamic>('/workspaces/$id/invitations', body: {'email': email, 'role': role});
+  Future<({String? code, bool mailSent})> invite(String id, {required String email, required String role}) async {
+    final r = await _api.post<dynamic>('/workspaces/$id/invitations', body: {'email': email, 'role': role});
+    final m = r is Map ? r : const {};
+    return (code: m['code'] as String?, mailSent: m['mail_sent'] != false);
+  }
   @override
-  Future<void> acceptInvite(String token) => _api.post<dynamic>('/workspaces/invitations/accept', body: {'token': token});
+  // Codes are often pasted with spaces or line breaks around them.
+  Future<void> acceptInvite(String token) => _api.post<dynamic>('/workspaces/invitations/accept', body: {'token': token.replaceAll(RegExp(r'\s'), '')});
   @override
   Future<void> updateMember(String id, String userId, Map<String, dynamic> patch) => _api.patch<dynamic>('/workspaces/$id/members/$userId', body: patch);
   @override

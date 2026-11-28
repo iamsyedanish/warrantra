@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../../core/config/app_config.dart';
 import '../../../core/theme/tokens.dart';
@@ -12,6 +13,7 @@ import '../../../core/widgets/display.dart';
 import '../../../core/widgets/inputs.dart';
 import '../../../core/widgets/scaffold.dart';
 import '../../account/presentation/account_providers.dart';
+import '../../../core/errors/failure.dart';
 import '../domain/household.dart';
 import 'household_providers.dart';
 
@@ -62,9 +64,9 @@ class HouseholdScreen extends ConsumerWidget {
           try {
             await ref.read(householdRepositoryProvider).acceptInvite(t);
             ref.invalidate(workspacesProvider);
-            if (context.mounted) showToast(context, 'Joined');
+            if (context.mounted) showToast(context, 'You’ve joined. Shared items will appear here.');
           } catch (e) {
-            if (context.mounted) showFailure(context, e);
+            if (context.mounted) showToast(context, _joinError(e));
           }
         }, child: const Text('Join with code')),
       ],
@@ -175,7 +177,19 @@ class _WorkspaceView extends ConsumerWidget {
             WButton.secondary('Invite a member', icon: PhosphorIconsRegular.userPlus, onPressed: () async {
               final email = await _ask(context, 'Invite a member', 'Email', type: TextInputType.emailAddress,
                   validate: (v) => RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(v) ? null : 'Enter a valid email address.');
-              if (email != null) await act(() => repo.invite(w.id, email: email, role: 'editor'), 'Invitation sent');
+              if (email == null) return;
+              try {
+                final r = await repo.invite(w.id, email: email, role: 'editor');
+                ref.invalidate(workspaceProvider(id));
+                if (!context.mounted) return;
+                if (r.code != null) {
+                  await _showInviteCode(context, code: r.code!, email: email, household: w.name, mailSent: r.mailSent);
+                } else {
+                  showToast(context, 'Invitation sent');
+                }
+              } catch (e) {
+                if (context.mounted) showFailure(context, e);
+              }
             })
           else
             WButton.ghost('Leave', onPressed: () => act(() => repo.leave(w.id), 'You left ${w.name}')),
@@ -279,4 +293,47 @@ class EmailForwardingScreen extends ConsumerWidget {
       Text('PDF and image attachments up to 10 MB from your account email. Unknown senders are ignored.', style: TextStyle(fontSize: 12.5, color: c.textSubtle)),
     ]);
   }
+}
+
+/// Plain-English reasons a join code didn't work.
+String _joinError(Object e) {
+  final code = e is Failure ? e.code : '';
+  return switch (code) {
+    'validation_failed' || 'invitation_invalid' || 'not_found' =>
+      'That code didn’t work. Check you copied all of it, or ask for a new invite (codes last 7 days).',
+    'invitation_email_mismatch' => 'This invite was sent to a different email. Sign in with the email it was sent to.',
+    _ => e is Failure ? e.message : 'Something went wrong. Please try again.',
+  };
+}
+
+/// After inviting: show the code so it can be sent any way the owner likes.
+Future<void> _showInviteCode(BuildContext context, {required String code, required String email, required String household, required bool mailSent}) {
+  final message = 'Join "$household" on Warrantra: open the app, go to Settings → Household → Join with code, and paste this code:\n\n$code\n\n'
+      'Sign in with $email. The code lasts 7 days.';
+  return showWSheet<void>(context, builder: (ctx) {
+    final c = ctx.w;
+    return Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      Text('Invite ready', style: ctx.t.titleLarge),
+      const SizedBox(height: 6),
+      Text(
+        mailSent
+            ? 'We emailed the code to $email. You can also send it yourself by message or WhatsApp.'
+            : 'Send this code to $email by message or WhatsApp. They paste it in Join with code.',
+        style: TextStyle(fontSize: 14, height: 1.4, color: c.textMuted),
+      ),
+      const SizedBox(height: 14),
+      Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(color: c.surfaceRaised, borderRadius: BorderRadius.circular(12), border: Border.all(color: c.divider)),
+        child: SelectableText(code, style: TextStyle(fontFamily: 'monospace', fontSize: 14, color: c.text)),
+      ),
+      const SizedBox(height: 14),
+      WButton('Share invite', icon: PhosphorIconsRegular.shareNetwork, onPressed: () => SharePlus.instance.share(ShareParams(text: message, subject: 'Join $household on Warrantra'))),
+      const SizedBox(height: 6),
+      WButton.secondary('Copy code', icon: PhosphorIconsRegular.copy, onPressed: () async {
+        await Clipboard.setData(ClipboardData(text: code));
+        if (ctx.mounted) showToast(ctx, 'Code copied');
+      }),
+    ]);
+  });
 }

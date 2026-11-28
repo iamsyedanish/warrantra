@@ -62,11 +62,11 @@ const EnvSchema = z.object({
   // Outbound email (verification for web deletion, workspace invitations)
   MAIL_PROVIDER: z.enum(['resend', 'log']).default('log'),
   RESEND_API_KEY: z.string().optional(),
-  MAIL_FROM: z.string().default('Warrantra <no-reply@warrantra.app>'),
-  SUPPORT_EMAIL: z.string().email().default('support@warrantra.app'),
+  MAIL_FROM: z.string().default('Warrantra <no-reply@warrantra.com>'),
+  SUPPORT_EMAIL: z.string().email().default('support@warrantra.com'),
 
   // Inbound email forwarding (Postmark inbound webhook)
-  INBOUND_DOMAIN: z.string().default('in.warrantra.app'),
+  INBOUND_DOMAIN: z.string().default('in.warrantra.com'),
   INBOUND_WEBHOOK_USER: z.string().default('postmark'),
   INBOUND_WEBHOOK_PASSWORD: z.string().optional(),
   INBOUND_REQUIRE_SENDER_AUTH: bool('true'),

@@ -18,10 +18,10 @@ class AppConfig {
   /// Current AI consent text version shown on the consent screen.
   static const aiConsentVersion = 'v1';
 
-  static const supportEmail = 'support@warrantra.app';
-  static const webDeletionUrl = 'https://warrantra.app/delete';
-  static const privacyUrl = 'https://warrantra.app/privacy';
-  static const termsUrl = 'https://warrantra.app/terms';
+  static const supportEmail = 'support@warrantra.com';
+  static const webDeletionUrl = 'https://warrantra.com/delete';
+  static const privacyUrl = 'https://warrantra.com/privacy';
+  static const termsUrl = 'https://warrantra.com/terms';
 
   /// Upload limits mirrored from the backend for early, friendly validation.
   /// Inbound email (receipt forwarding) needs the mail domain and provider set up.
