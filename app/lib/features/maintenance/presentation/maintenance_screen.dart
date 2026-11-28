@@ -8,6 +8,7 @@ import '../../../core/widgets/buttons.dart';
 import '../../../core/widgets/display.dart';
 import '../../../core/widgets/inputs.dart';
 import '../../../core/widgets/scaffold.dart';
+import '../../account/presentation/account_providers.dart';
 import '../../home/presentation/home_providers.dart';
 import '../../items/presentation/items_providers.dart';
 import '../domain/maintenance.dart';
@@ -23,13 +24,14 @@ class MaintenanceScreen extends ConsumerWidget {
     final every = TextEditingController(text: '3');
     DateTime? next = DateTime.now().add(const Duration(days: 30));
     String basis = 'user_preference';
+    String? titleError, everyError;
     final ok = await showWSheet<bool>(context, builder: (ctx) => StatefulBuilder(
           builder: (ctx, set) => Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             Text('Add a recurring task', style: ctx.t.titleLarge),
             const SizedBox(height: 10),
-            WField(label: 'Task', controller: title, hint: 'e.g. Clean the filter'),
-            Row(children: [
-              SizedBox(width: 80, child: WField(label: 'Every', controller: every, keyboardType: TextInputType.number)),
+            WField(label: 'Task', controller: title, hint: 'e.g. Clean the filter', error: titleError, onChanged: (_) => set(() => titleError = null)),
+            Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              SizedBox(width: 90, child: WField(label: 'Every', controller: every, keyboardType: TextInputType.number, error: everyError, onChanged: (_) => set(() => everyError = null))),
               const SizedBox(width: 10),
               Expanded(child: WChoiceChips<String>(options: const [('week', 'Weeks'), ('month', 'Months'), ('year', 'Years')], value: unit, onChanged: (v) => set(() => unit = v))),
             ]),
@@ -41,7 +43,15 @@ class MaintenanceScreen extends ConsumerWidget {
               onChanged: (v) => set(() => basis = v),
             ),
             const SizedBox(height: 12),
-            WButton('Save task', onPressed: () => Navigator.pop(ctx, title.text.trim().isNotEmpty)),
+            WButton('Save task', onPressed: () {
+              // Stay open and say what's missing instead of closing silently.
+              final n = int.tryParse(every.text.trim());
+              set(() {
+                titleError = title.text.trim().isEmpty ? 'Give the task a name.' : null;
+                everyError = n == null || n < 1 || n > 365 ? '1 to 365' : null;
+              });
+              if (titleError == null && everyError == null) Navigator.pop(ctx, true);
+            }),
           ]),
         ));
     if (ok != true) return;
@@ -57,6 +67,7 @@ class MaintenanceScreen extends ConsumerWidget {
       });
       ref.invalidate(tasksProvider(itemId));
       ref.invalidate(actionCenterProvider);
+      if (context.mounted) showToast(context, 'Task added. I’ll remind you when it’s due.');
     } catch (e) {
       if (context.mounted) showFailure(context, e);
     }
@@ -68,6 +79,9 @@ class MaintenanceScreen extends ConsumerWidget {
     final cost = TextEditingController();
     DateTime? date = DateTime.now();
     String type = 'repair';
+    String? costError;
+    // Costs are in the account's own currency (it was always saved as USD).
+    final currency = ref.read(meProvider).value?.profile.currency ?? 'USD';
     final ok = await showWSheet<bool>(context, builder: (ctx) => StatefulBuilder(
           builder: (ctx, set) => Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             Text('Add a service record', style: ctx.t.titleLarge),
@@ -81,15 +95,15 @@ class MaintenanceScreen extends ConsumerWidget {
             WDateField(notAfterToday: true, label: 'Date', value: date, onChanged: (v) => set(() => date = v), allowClear: false),
             WField(label: 'Provider', controller: provider),
             WField(label: 'What was done', controller: desc, maxLines: 2),
-            WField(label: 'Cost', controller: cost, keyboardType: const TextInputType.numberWithOptions(decimal: true)),
-            WButton('Save record', onPressed: () => Navigator.pop(ctx, true)),
+            WField(label: 'Cost ($currency)', controller: cost, hint: 'Optional', error: costError,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true), onChanged: (_) => set(() => costError = null)),
+            WButton('Save record', onPressed: () {
+              if (isBadMoney(cost.text)) return set(() => costError = badMoneyMessage);
+              Navigator.pop(ctx, true);
+            }),
           ]),
         ));
     if (ok != true || itemId == null) return;
-    if (isBadMoney(cost.text)) {
-      if (context.mounted) showToast(context, badMoneyMessage);
-      return;
-    }
     try {
       final money = normalizeMoney(cost.text);
       await ref.read(maintenanceRepositoryProvider).addRecord({
@@ -98,9 +112,10 @@ class MaintenanceScreen extends ConsumerWidget {
         'service_type': type,
         if (provider.text.trim().isNotEmpty) 'provider_name': provider.text.trim(),
         if (desc.text.trim().isNotEmpty) 'description': desc.text.trim(),
-        if (money != null) ...{'cost_amount': money, 'cost_currency': 'USD'},
+        if (money != null) ...{'cost_amount': money, 'cost_currency': currency},
       });
       ref.invalidate(serviceRecordsProvider(itemId!));
+      if (context.mounted) showToast(context, 'Service record saved.');
     } catch (e) {
       if (context.mounted) showFailure(context, e);
     }

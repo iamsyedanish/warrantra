@@ -16,6 +16,7 @@ import '../../../core/widgets/scaffold.dart';
 import '../../items/presentation/items_providers.dart';
 import '../domain/capture.dart';
 import 'capture_providers.dart';
+import '../../../core/widgets/loaders.dart';
 
 enum PickSource { camera, gallery, files }
 
@@ -78,23 +79,14 @@ PickedFile _validate(PickedFile f) {
 /// Uploads with a blocking progress dialog; returns null if it failed (and shows why).
 Future<UploadedFile?> uploadWithProgress(BuildContext context, WidgetRef ref, PickedFile f, {required String fileType}) async {
   final key = ApiClient.newIdempotencyKey();
-  showDialog<void>(
-    context: context,
-    barrierDismissible: false,
-    builder: (ctx) => const PopScope(
-      canPop: false,
-      child: AlertDialog(content: Row(children: [SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.4)), SizedBox(width: 16), Text('Uploading securely…')])),
-    ),
-  );
+  final close = showBusyDialog(context, title: 'Uploading securely', subtitle: 'Encrypted on the way to your private Vault.', icon: PhosphorIconsFill.lockKey);
   try {
     final up = await ref.read(captureRepositoryProvider).upload(bytes: f.bytes, filename: f.name, mime: f.mime, fileType: fileType, idempotencyKey: key);
-    if (context.mounted) Navigator.of(context, rootNavigator: true).pop();
+    close();
     return up;
   } catch (e) {
-    if (context.mounted) {
-      Navigator.of(context, rootNavigator: true).pop();
-      showUploadIssue(context, e);
-    }
+    close();
+    if (context.mounted) showUploadIssue(context, e);
     return null;
   }
 }

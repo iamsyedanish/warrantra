@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/foundation.dart' show TargetPlatform, defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -17,41 +19,277 @@ import 'session_controller.dart';
 
 const _tagline = 'Keep the proof. Know the deadline. Be ready when something goes wrong.';
 
-class SplashScreen extends StatelessWidget {
+class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
+  @override
+  State<SplashScreen> createState() => _SplashScreenState();
+}
+
+/// Logo pops in with a glowing pulse, the name and tagline rise into place,
+/// three short promises appear one by one, and a dotted "Restoring" line runs
+/// while the session loads.
+class _SplashScreenState extends State<SplashScreen>
+    with TickerProviderStateMixin {
+  @override
+  void initState() {
+    super.initState();
+    // Tell the session check the splash is on screen (its minimum time starts now).
+    WidgetsBinding.instance.addPostFrameCallback((_) => WidgetsBinding.instance.endOfFrame.then((_) => SessionController.splashPainted()));
+  }
+
+  late final AnimationController _intro = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1600),
+  )..forward();
+  late final AnimationController _loop = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 2200),
+  )..repeat();
+
+  @override
+  void dispose() {
+    _intro.dispose();
+    _loop.dispose();
+    super.dispose();
+  }
+
+  /// 0→1 for the part of the intro between [from] and [to].
+  double _part(double from, double to) => Curves.easeOutCubic.transform(
+    ((_intro.value - from) / (to - from)).clamp(0.0, 1.0),
+  );
+
   @override
   Widget build(BuildContext context) {
     final c = context.w;
     return Scaffold(
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: RadialGradient(center: const Alignment(-1, -0.2), radius: 1.2, colors: [c.accentSoft, c.bg]),
-        ),
-        padding: const EdgeInsets.fromLTRB(32, 0, 32, 80),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const WLogo(size: 72),
-            const SizedBox(height: 16),
-            Text('Warrantra', style: context.t.displaySmall),
-            const SizedBox(height: 8),
-            Text(_tagline, style: TextStyle(fontSize: 16, height: 1.5, color: c.textMuted)),
-            const SizedBox(height: 28),
-            Row(
-              children: [
-                SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: c.accent)),
-                const SizedBox(width: 10),
-                Flexible(
-                  child: Text('Restoring your session', style: TextStyle(fontSize: 13, color: c.textSubtle)),
-                ),
-              ],
+      body: AnimatedBuilder(
+        animation: Listenable.merge([_intro, _loop]),
+        builder: (context, _) {
+          final logo = _part(0, 0.45),
+              name = _part(0.25, 0.6),
+              tag = _part(0.4, 0.75),
+              pills = _part(0.6, 1);
+          final pulse = _loop.value;
+          Widget rise(double t, Widget child) => Opacity(
+            opacity: t,
+            child: Transform.translate(
+              offset: Offset(0, 18 * (1 - t)),
+              child: child,
             ),
-          ],
-        ),
+          );
+          return Stack(
+            children: [
+              // Slowly drifting glows in the background.
+              Positioned.fill(
+                child: CustomPaint(
+                  painter: _SplashGlow(accent: c.accent, bg: c.bg, t: pulse),
+                ),
+              ),
+              SafeArea(
+                // Centred when it fits; scrolls on short screens (landscape).
+                child: LayoutBuilder(
+                  builder: (context, box) => SingleChildScrollView(
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(minHeight: box.maxHeight),
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(32, 24, 32, 48),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Logo with an expanding ring.
+                            SizedBox(
+                              width: 96,
+                              height: 96,
+                              child: Stack(
+                                alignment: Alignment.center,
+                                children: [
+                                  Opacity(
+                                    opacity: (1 - pulse) * 0.5 * logo,
+                                    child: Container(
+                                      width: 72 + pulse * 30,
+                                      height: 72 + pulse * 30,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        border: Border.all(
+                                          color: c.accent,
+                                          width: 2,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  Transform.scale(
+                                    scale: 0.6 + 0.4 * logo,
+                                    child: Opacity(
+                                      opacity: logo,
+                                      child: const WLogo(size: 76),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 18),
+                            rise(
+                              name,
+                              Text(
+                                'Warrantra',
+                                style: context.t.displaySmall?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: -0.5,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            rise(
+                              tag,
+                              Text(
+                                _tagline,
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  height: 1.5,
+                                  color: c.textMuted,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 22),
+                            rise(
+                              pills,
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                children: [
+                                  for (final (icon, label) in const [
+                                    (
+                                      PhosphorIconsRegular.receipt,
+                                      'Receipts kept',
+                                    ),
+                                    (
+                                      PhosphorIconsRegular.bellRinging,
+                                      'Deadlines remembered',
+                                    ),
+                                    (
+                                      PhosphorIconsRegular.shieldCheck,
+                                      'Claims made easy',
+                                    ),
+                                  ])
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                        vertical: 6,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: c.surface.withValues(alpha: 0.7),
+                                        borderRadius: BorderRadius.circular(20),
+                                        border: Border.all(color: c.divider),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(icon, size: 14, color: c.accent),
+                                          const SizedBox(width: 6),
+                                          Text(
+                                            label,
+                                            style: TextStyle(
+                                              fontSize: 12.5,
+                                              fontWeight: FontWeight.w500,
+                                              color: c.text,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 32),
+                            Opacity(
+                              opacity: pills,
+                              child: Row(
+                                children: [
+                                  for (var i = 0; i < 3; i++)
+                                    Container(
+                                      width: 7,
+                                      height: 7,
+                                      margin: const EdgeInsets.only(right: 5),
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        color: c.accent.withValues(
+                                          alpha:
+                                              0.3 +
+                                              0.7 *
+                                                  (0.5 +
+                                                      0.5 *
+                                                          math.sin(
+                                                            (pulse *
+                                                                    2 *
+                                                                    math.pi) -
+                                                                i * 0.9,
+                                                          )),
+                                        ),
+                                      ),
+                                    ),
+                                  const SizedBox(width: 6),
+                                  Flexible(
+                                    child: Text(
+                                      'Restoring your session',
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        color: c.textSubtle,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
+}
+
+class _SplashGlow extends CustomPainter {
+  _SplashGlow({required this.accent, required this.bg, required this.t});
+  final Color accent, bg;
+  final double t;
+  @override
+  void paint(Canvas canvas, Size size) {
+    canvas.drawRect(Offset.zero & size, Paint()..color = bg);
+    final a = t * 2 * math.pi;
+    for (final (cx, cy, r, alpha, phase) in [
+      (0.1, 0.25, 0.75, 0.22, 0.0),
+      (0.95, 0.85, 0.6, 0.16, 2.1),
+    ]) {
+      final center = Offset(
+        size.width * (cx + 0.04 * math.cos(a + phase)),
+        size.height * (cy + 0.03 * math.sin(a + phase)),
+      );
+      final radius = size.width * r;
+      canvas.drawCircle(
+        center,
+        radius,
+        Paint()
+          ..shader = RadialGradient(
+            colors: [
+              accent.withValues(alpha: alpha),
+              accent.withValues(alpha: 0),
+            ],
+          ).createShader(Rect.fromCircle(center: center, radius: radius)),
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _SplashGlow old) =>
+      old.t != t || old.accent != accent || old.bg != bg;
 }
 
 // ---------------------------------------------------------------------------- onboarding

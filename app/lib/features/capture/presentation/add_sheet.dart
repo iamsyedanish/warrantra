@@ -17,6 +17,7 @@ import 'capture_providers.dart';
 import 'capture_screens.dart' show PendingScan;
 import 'upload_flow.dart';
 import '../../guide/guide_spotlight.dart';
+import '../../../core/widgets/loaders.dart';
 
 enum CaptureMode { scanReceipt, upload, manual, productLabel }
 
@@ -199,23 +200,14 @@ Future<void> pickUploadAndScan(BuildContext context, ProviderContainer container
 
 Future<UploadedFile?> _upload(BuildContext context, ProviderContainer container, PickedFile f, String type) async {
   final key = ApiClient.newIdempotencyKey();
-  showDialog<void>(
-    context: context,
-    barrierDismissible: false,
-    builder: (ctx) => const PopScope(
-      canPop: false,
-      child: AlertDialog(content: Row(children: [SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.4)), SizedBox(width: 16), Text('Uploading securely…')])),
-    ),
-  );
+  final close = showBusyDialog(context, title: 'Uploading securely', subtitle: 'Encrypted on the way to your private Vault.', icon: PhosphorIconsFill.lockKey);
   try {
     final up = await container.read(captureRepositoryProvider).upload(bytes: f.bytes, filename: f.name, mime: f.mime, fileType: type, idempotencyKey: key);
-    if (context.mounted) Navigator.of(context, rootNavigator: true).pop();
+    close();
     return up;
   } catch (e) {
-    if (context.mounted) {
-      Navigator.of(context, rootNavigator: true).pop();
-      showUploadIssue(context, e);
-    }
+    close();
+    if (context.mounted) showUploadIssue(context, e);
     return null;
   }
 }
