@@ -28,6 +28,8 @@ class WarrantraApp extends ConsumerWidget {
       darkTheme: AppTheme.dark(),
       themeMode: ref.watch(themeModeProvider),
       routerConfig: ref.watch(routerProvider),
+      // Tablets and landscape: keep the app a readable width, centred.
+      builder: (context, child) => ResponsiveFrame(child: child ?? const SizedBox.shrink()),
       localizationsDelegates: const [GlobalMaterialLocalizations.delegate, GlobalWidgetsLocalizations.delegate, GlobalCupertinoLocalizations.delegate],
       supportedLocales: const [Locale('en', 'US'), Locale('en', 'CA'), Locale('en', 'GB')],
     );

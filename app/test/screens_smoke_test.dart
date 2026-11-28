@@ -27,8 +27,8 @@ const routes = [
   '/household', '/household?share=airpods', '/portfolio', '/maintenance?item=washer', '/cards',
 ];
 
-Future<void> openRoute(WidgetTester tester, String route, Brightness brightness, {double textScale = 1}) async {
-  tester.view.physicalSize = const Size(1206, 2622);
+Future<void> openRoute(WidgetTester tester, String route, Brightness brightness, {double textScale = 1, Size size = const Size(1206, 2622)}) async {
+  tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 3;
   tester.platformDispatcher.platformBrightnessTestValue = brightness;
   tester.platformDispatcher.textScaleFactorTestValue = textScale;
@@ -65,13 +65,22 @@ void main() {
       await loadFont('packages/phosphor_flutter/Phosphor$f', 'packages/phosphor_flutter/lib/fonts/$a');
     }
   });
-  for (final (b, scale) in [(Brightness.dark, 1.0), (Brightness.light, 1.0), (Brightness.dark, 1.35)]) {
+  // Phone (402dp), small phone (320dp), tablet (800dp) and phone landscape.
+  const phone = Size(1206, 2622), small = Size(960, 2000), tablet = Size(2400, 3840), landscape = Size(2622, 1206);
+  for (final (b, scale, size, label) in [
+    (Brightness.dark, 1.0, phone, ''),
+    (Brightness.light, 1.0, phone, ''),
+    (Brightness.dark, 1.35, phone, ' large-text'),
+    (Brightness.light, 1.0, small, ' small-phone'),
+    (Brightness.dark, 1.0, tablet, ' tablet'),
+    (Brightness.light, 1.0, landscape, ' landscape'),
+  ]) {
     for (final r in routes) {
-      testWidgets('${b.name}${scale == 1 ? '' : ' large-text'} $r', (tester) async {
+      testWidgets('${b.name}$label $r', (tester) async {
         final errors = <String>[];
         final previous = FlutterError.onError;
         FlutterError.onError = (d) => errors.add(d.toString().split('\n').where((l) => l.contains('overflowed') || l.contains('lib/') || l.contains('Exception') || l.contains('Error')).take(6).join('\n'));
-        await openRoute(tester, r, b, textScale: scale);
+        await openRoute(tester, r, b, textScale: scale, size: size);
         FlutterError.onError = previous;
         expect(errors, isEmpty, reason: 'errors on $r:\n${errors.join('\n---\n')}');
         expect(tester.takeException(), isNull, reason: 'exception on $r');

@@ -269,7 +269,7 @@ Future<bool> showGuideIntro(BuildContext context) async {
         Text('Hi, I’m ${GuideAvatar.name}!', textAlign: TextAlign.center, style: ctx.t.headlineSmall),
         const SizedBox(height: 8),
         Text(
-          'I’ll help you find your way around Warrantra. Want a 30-second tour? You can ask me anything later: just tap me in the corner of any screen.',
+          'I’ll help you find your way around Warrantra. Want a 30-second tour? You can ask me anything later: just tap me at the top of any screen.',
           textAlign: TextAlign.center,
           style: TextStyle(fontSize: 14.5, height: 1.45, color: c.textMuted),
         ),

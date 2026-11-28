@@ -60,7 +60,10 @@ class SettingsScreen extends ConsumerWidget {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(20, 12, 20, 110),
             children: [
-              Text('Settings', style: context.t.headlineMedium),
+              Row(children: [
+                Expanded(child: Text('Settings', style: context.t.headlineMedium)),
+                const GuideButton(size: 34),
+              ]),
               const SizedBox(height: 14),
               AsyncBody<Me>(
                 value: me,
@@ -433,10 +436,17 @@ class _MiniScreen extends StatelessWidget {
             ),
           ]),
         );
+    // Drawn at a fixed design size and scaled to fit, so narrow cards never overflow.
     return Container(
       color: p.bg,
-      padding: const EdgeInsets.fromLTRB(7, 9, 7, 7),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      child: FittedBox(
+        fit: BoxFit.fill,
+        child: SizedBox(
+          width: 110,
+          height: 134,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(7, 9, 7, 7),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         bar(26, p.text.withValues(alpha: 0.85), h: 5),
         const SizedBox(height: 7),
         card(),
@@ -444,7 +454,10 @@ class _MiniScreen extends StatelessWidget {
         card(),
         const Spacer(),
         Container(height: 9, decoration: BoxDecoration(color: p.accent, borderRadius: BorderRadius.circular(4))),
-      ]),
+            ]),
+          ),
+        ),
+      ),
     );
   }
 }

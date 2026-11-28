@@ -150,7 +150,9 @@ class _SpotlightRunnerState extends State<_SpotlightRunner>
       if (!mounted || !ctx.mounted) return;
       final box = ctx.findRenderObject() as RenderBox?;
       if (box != null && box.attached && box.hasSize) {
-        target = (box.localToGlobal(Offset.zero) & box.size).inflate(8);
+        // Relative to this overlay (the app may be a centred column on tablets).
+        final layer = context.findRenderObject();
+        target = (box.localToGlobal(Offset.zero, ancestor: layer) & box.size).inflate(8);
       }
     }
     if (!mounted) return;

@@ -334,5 +334,5 @@ const guideIntroTour = <GuideStep>[
   GuideStep('All your things live here, with how long each warranty has left.', target: 'nav.items', title: 'Items'),
   GuideStep('Every receipt and warranty card, kept safe and private.', target: 'nav.vault', title: 'Vault'),
   GuideStep('Reminders, your plan and privacy are in Settings.', target: 'nav.settings', title: 'Settings'),
-  GuideStep('And that’s me! Tap me on any screen and I’ll show you how things work.', target: 'guide.button', title: 'Need help?'),
+  GuideStep('And that’s me! Tap me at the top of any screen and I’ll show you how things work.', target: 'guide.button', title: 'Need help?'),
 ];
