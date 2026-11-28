@@ -84,7 +84,7 @@ class _Account with _NoWrites implements AccountRepository {
           onboardingCompleted: true,
         ),
         plan: const PlanInfo(code: 'free', maxItems: 10, storageBytes: 100 << 20, aiPerMonth: 0, aiTrial: 5, claimPackAssembled: false, aiClaimDraft: false, workspaces: false, emailForwarding: false),
-        usage: const Usage(itemsUsed: 6, itemsLimit: 10, storageUsed: 14 << 20, storageLimit: 100 << 20, aiUsed: 3, aiLimit: 5, aiPeriod: 'lifetime', additionsPaused: false),
+        usage: const Usage(itemsUsed: 4, itemsLimit: 5, storageUsed: 14 << 20, storageLimit: 20 << 20, aiUsed: 3, aiLimit: 5, aiPeriod: 'lifetime', additionsPaused: false),
       );
   @override
   Future<PriceOffer> offer() async => const PriceOffer(annualPrice: 79.99, monthlyPrice: 7.99);

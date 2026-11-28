@@ -168,7 +168,7 @@ class _OnboardingState extends ConsumerState<OnboardingScreen> {
         body: 'Your receipts stay in your account. Upgrade only if you need more.',
         fragment: _Fragment(
           children: [
-            const _Plan('Free', '10 items · 100 MB · reminders · export · 3 AI receipt reads to try'),
+            const _Plan('Free', '5 items · 20 MB · reminders · export · 3 AI receipt reads to try'),
             Divider(height: 18, color: c.divider),
             const _Plan('Pro', '500 items · 1 GB · 20 AI reads a month · full claim packs', accent: true),
           ],
@@ -589,7 +589,7 @@ class _SignUpState extends ConsumerState<SignUpScreen> {
     }
     return WScreen(
       children: [
-        const WHeading('Create your account', subtitle: 'Free includes 10 items, reminders, original files and export.'),
+        const WHeading('Create your account', subtitle: 'Free includes 5 items, reminders, original files and export.'),
         if (_appleAvailable) ...[
           WButton.secondary(
             'Continue with Apple',
