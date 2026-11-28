@@ -6,6 +6,7 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/config/app_config.dart';
+import '../../../core/errors/failure.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/utils/format.dart';
 import '../../../core/widgets/buttons.dart';
@@ -237,11 +238,61 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
           context.pop();
         }
       }
+    } on Failure catch (e) {
+      if (!mounted) return;
+      if (e.code == 'purchase_owned_by_other_account' || e.code == 'already_subscribed') {
+        await _explainAlreadySubscribed(e);
+      } else {
+        showFailure(context, e);
+      }
     } catch (e) {
       if (mounted) showFailure(context, e);
     } finally {
       if (mounted) setState(() => busy = false);
     }
+  }
+
+  /// One Google Play account can hold one Warrantra subscription, used by the
+  /// Warrantra account it was bought for. Explain the ways forward.
+  Future<void> _explainAlreadySubscribed(Failure e) {
+    final hint = e.details?['owner_email_hint'] as String?;
+    return showWSheet<void>(context, builder: (ctx) {
+      final c = ctx.w;
+      Widget option(IconData icon, String title, String body) => Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              WTintIcon(icon, WTint.violet, size: 34),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(title, style: TextStyle(fontWeight: FontWeight.w600, color: c.text)),
+                  const SizedBox(height: 2),
+                  Text(body, style: TextStyle(fontSize: 13, height: 1.4, color: c.textMuted)),
+                ]),
+              ),
+            ]),
+          );
+      return Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Text('Pro is already on this Google Play account', style: ctx.t.titleLarge),
+        const SizedBox(height: 8),
+        Text(
+          hint != null
+              ? 'Your Google Play account already pays for Warrantra Pro, and it’s linked to $hint. A subscription can only be used by one Warrantra account.'
+              : 'Your Google Play account already has a Warrantra subscription, linked to a different Warrantra account. A subscription can only be used by one Warrantra account.',
+          style: TextStyle(fontSize: 14, height: 1.45, color: c.textMuted),
+        ),
+        const SizedBox(height: 16),
+        option(PhosphorIconsRegular.userSwitch, 'Use that account', 'Sign out and sign in as ${hint ?? 'the account that bought Pro'} to use Pro there.'),
+        option(PhosphorIconsRegular.xCircle, 'Move Pro to this account',
+            'Cancel the subscription in Google Play. When it ends, you can subscribe here.'),
+        option(PhosphorIconsRegular.googleLogo, 'Use another Google account', 'Switch the Google account in the Play Store, then subscribe here.'),
+        const SizedBox(height: 4),
+        WButton.secondary('Open Google Play subscriptions', icon: PhosphorIconsRegular.arrowSquareOut,
+            onPressed: () => launchUrl(Uri.parse('https://play.google.com/store/account/subscriptions'), mode: LaunchMode.externalApplication)),
+        const SizedBox(height: 4),
+        WButton.ghost('OK', onPressed: () => Navigator.pop(ctx)),
+      ]);
+    });
   }
 
   @override

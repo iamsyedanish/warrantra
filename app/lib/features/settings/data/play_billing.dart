@@ -23,6 +23,7 @@ class PlayBilling implements BillingGateway {
   String? _userId;
   Completer<PurchaseOutcome>? _pending;
   final _inFlight = <Future<void>>{};
+  Object? _restoreError;
   List<GooglePlayProductDetails> _products = const [];
 
   @override
@@ -96,8 +97,13 @@ class PlayBilling implements BillingGateway {
     if (!available) return;
     await _iap.restorePurchases();
     // Restored purchases are delivered on the stream; give them a moment, then wait for the server.
+    _restoreError = null;
     await Future<void>.delayed(const Duration(milliseconds: 800));
     await Future.wait(_inFlight.toList());
+    // e.g. the subscription belongs to another Warrantra account: say so.
+    final err = _restoreError;
+    _restoreError = null;
+    if (err != null) throw err;
   }
 
   void _onUpdates(List<PurchaseDetails> updates) {
@@ -118,6 +124,11 @@ class PlayBilling implements BillingGateway {
         return;
       case PurchaseStatus.error:
         if (d.pendingCompletePurchase) await _iap.completePurchase(d);
+        final why = '${d.error?.message} ${d.error?.details}'.toLowerCase();
+        if (_pending != null && (why.contains('alreadyowned') || why.contains('already_owned') || why.contains('already own'))) {
+          await _resolveAlreadyOwned();
+          return;
+        }
         _fail(Failure('purchase_failed', d.error?.message ?? 'The purchase could not be completed.'));
         return;
       case PurchaseStatus.purchased:
@@ -129,8 +140,33 @@ class PlayBilling implements BillingGateway {
           _finish(PurchaseOutcome.purchased);
         } catch (e) {
           // Not completed: Google keeps redelivering it, and the server retries on restore.
+          if (_pending == null) _restoreError = e; // surfaced by restore()
           _fail(e);
         }
+    }
+  }
+
+  /// Google Play says this Play account already has the subscription. Find it
+  /// and ask our server: if it belongs to this Warrantra account Pro turns on
+  /// (e.g. after a reinstall); if it belongs to another account the server says
+  /// which one (purchase_owned_by_other_account).
+  Future<void> _resolveAlreadyOwned() async {
+    try {
+      final addition = _iap.getPlatformAddition<InAppPurchaseAndroidPlatformAddition>();
+      final past = await addition.queryPastPurchases();
+      final mine = past.pastPurchases.where((p) => p.productID == productId).toList();
+      if (mine.isEmpty) {
+        _fail(const Failure('already_subscribed',
+            'This Google Play account already has a Warrantra subscription. Open Google Play → Payments & subscriptions to check it.'));
+        return;
+      }
+      for (final p in mine) {
+        await _api.post<Map<String, dynamic>>('/me/purchases/google-play',
+            body: {'purchase_token': p.verificationData.serverVerificationData, 'product_id': p.productID});
+      }
+      _finish(PurchaseOutcome.purchased);
+    } catch (e) {
+      _fail(e);
     }
   }
 

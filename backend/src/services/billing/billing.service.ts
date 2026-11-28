@@ -153,7 +153,13 @@ export async function verifyPlayPurchase(userId: string, purchaseToken: string) 
   if (!sub) throw new AppError(404, 'purchase_not_found', 'Google Play has no record of this purchase');
   const owner = await ownerOf(purchaseToken, sub);
   if (owner && owner !== userId) {
-    throw new AppError(409, 'purchase_owned_by_other_account', 'This subscription belongs to a different Warrantra account. Sign in with that account to use it.');
+    // Say which account (partly hidden) so the person knows where to sign in.
+    const p = await serviceClient().from('profiles').select('email').eq('id', owner).maybeSingle();
+    const email = (p.data?.email as string | undefined) ?? null;
+    const hint = email ? email.replace(/^(.).*(@.*)$/, '$1***$2') : null;
+    throw new AppError(409, 'purchase_owned_by_other_account',
+      `This Google Play account already has Warrantra Pro on another Warrantra account${hint ? ` (${hint})` : ''}. Sign in with that account to use it.`,
+      hint ? { owner_email_hint: hint } : undefined);
   }
   const row = await syncToken(userId, purchaseToken, sub, { source: 'provider_api' });
   await audit({ actorType: 'user', actorId: userId, action: 'billing.play_purchase_verified', metadata: { state: row?.state ?? 'none' } });
