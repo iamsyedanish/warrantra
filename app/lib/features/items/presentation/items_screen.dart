@@ -16,6 +16,7 @@ import '../domain/items.dart';
 import 'item_ui.dart';
 import 'items_providers.dart';
 import '../../guide/guide_spotlight.dart';
+import '../../guide/guide_sheet.dart';
 
 const _statusFilters = <(String?, String)>[
   (null, 'All'),
@@ -93,6 +94,7 @@ class _ItemsScreenState extends ConsumerState<ItemsScreen> {
                   const PopupMenuItem(value: 'portfolio', child: Text('Portfolio summary')),
                 ],
               ),
+              const GuideButton(size: 34),
             ]),
           ),
           // Free shows the count in its usage card below; don't repeat it here.

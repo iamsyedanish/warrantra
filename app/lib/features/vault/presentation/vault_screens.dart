@@ -23,6 +23,7 @@ import '../../items/presentation/items_providers.dart';
 import '../domain/vault.dart';
 import 'vault_providers.dart';
 import '../../guide/guide_spotlight.dart';
+import '../../guide/guide_sheet.dart';
 
 const _types = <(String?, String)>[(null, 'All'), ('receipt', 'Receipts'), ('warranty_card', 'Warranties'), ('manual', 'Manuals'), ('product_photo', 'Photos'), ('claim_evidence', 'Claim evidence'), ('other', 'Other')];
 String typeLabel(String t) => switch (t) {
@@ -88,6 +89,8 @@ class VaultScreen extends ConsumerWidget {
                 ]),
               ),
               GuideTarget(id: 'vault.upload', child: WButton.secondary('Upload', icon: PhosphorIconsRegular.uploadSimple, expand: false, compact: true, onPressed: () => _upload(context, ref))),
+              const SizedBox(width: 4),
+              const GuideButton(size: 34),
             ]),
             if (me != null) ...[
               const SizedBox(height: 12),

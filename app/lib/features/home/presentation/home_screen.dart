@@ -16,6 +16,7 @@ import '../../items/presentation/items_providers.dart';
 import '../domain/action_center.dart';
 import 'home_providers.dart';
 import '../../guide/guide_spotlight.dart';
+import '../../guide/guide_sheet.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -43,6 +44,9 @@ class HomeScreen extends ConsumerWidget {
                   Text('Action Center', style: context.t.headlineMedium),
                 ]),
               ),
+              // Pip, the guide, lives in the top bar of every screen.
+              const GuideTarget(id: 'guide.button', child: GuideButton(size: 36)),
+              const SizedBox(width: 6),
               InkWell(
                 customBorder: const CircleBorder(),
                 onTap: () => context.go('/settings'),

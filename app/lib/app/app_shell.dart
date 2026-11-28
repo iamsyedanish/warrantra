@@ -135,8 +135,6 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
 
     return Scaffold(
       body: widget.shell,
-      // Pip, the guide, sits just above the tab bar on the main tabs.
-      floatingActionButton: const GuideTarget(id: 'guide.button', child: GuideButton(size: 46)),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(color: c.surface, border: Border(top: BorderSide(color: c.divider))),
         child: SafeArea(

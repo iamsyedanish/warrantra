@@ -69,9 +69,11 @@ class WScreen extends StatelessWidget {
                   ...() {
                     final guide = WScreen.guideButton?.call(context);
                     if (actions.isEmpty) return [if (guide != null) guide else if (showBack) const SizedBox(width: 40)];
-                    // Shrinks rather than overflowing with very large text.
+                    // Natural size on the right; shrinks only when it can't fit
+                    // (very large text on a small phone), never drifts inward.
                     return [
-                      Flexible(
+                      ConstrainedBox(
+                        constraints: BoxConstraints(maxWidth: MediaQuery.sizeOf(context).width * 0.6),
                         child: FittedBox(
                           fit: BoxFit.scaleDown,
                           alignment: Alignment.centerRight,
@@ -218,7 +220,34 @@ Future<T?> showWSheet<T>(BuildContext context, {required Widget Function(BuildCo
     builder: (ctx) {
       final mq = MediaQuery.of(ctx);
       final bottom = mq.viewInsets.bottom > mq.viewPadding.bottom ? mq.viewInsets.bottom : mq.viewPadding.bottom;
-      return Padding(padding: EdgeInsets.fromLTRB(20, 0, 20, 20 + bottom), child: builder(ctx));
+      // Scrolls when taller than the screen (landscape, large text).
+      return SingleChildScrollView(
+        child: Padding(padding: EdgeInsets.fromLTRB(20, 0, 20, 20 + bottom), child: builder(ctx)),
+      );
     },
   );
+}
+
+/// Caps the app at [maxWidth] and centres it on wide screens (tablets,
+/// landscape). Phones are untouched. Layout inside sees the capped width.
+class ResponsiveFrame extends StatelessWidget {
+  const ResponsiveFrame({super.key, required this.child, this.maxWidth = 600});
+  final Widget child;
+  final double maxWidth;
+
+  @override
+  Widget build(BuildContext context) {
+    final mq = MediaQuery.of(context);
+    if (mq.size.width <= maxWidth) return child;
+    final c = context.w;
+    return ColoredBox(
+      color: c.bg,
+      child: Center(
+        child: SizedBox(
+          width: maxWidth,
+          child: MediaQuery(data: mq.copyWith(size: Size(maxWidth, mq.size.height)), child: child),
+        ),
+      ),
+    );
+  }
 }
